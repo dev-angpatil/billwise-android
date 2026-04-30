@@ -34,10 +34,26 @@ class BillViewModel(
         viewModelScope.launch {
             val bill = BillParser.parse(rawData)
             billRepository.addBill(bill)
-            
-            // Also convert to transaction and notify the parent/TransactionViewModel
             val transaction = BillParser.toTransaction(bill)
             onBillParsedToTransaction(transaction)
         }
+    }
+
+    fun addManualTransaction(
+        amount: Double,
+        merchant: String,
+        category: String,
+        type: com.billwise.app.domain.model.TransactionType
+    ) {
+        val transaction = com.billwise.app.domain.model.Transaction(
+            id = java.util.UUID.randomUUID().toString(),
+            amount = amount,
+            merchant = merchant,
+            datetime = System.currentTimeMillis(),
+            type = type,
+            category = category,
+            source = com.billwise.app.domain.model.TransactionSource.MANUAL
+        )
+        onBillParsedToTransaction(transaction)
     }
 }

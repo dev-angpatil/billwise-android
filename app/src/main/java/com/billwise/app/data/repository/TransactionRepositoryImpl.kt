@@ -25,6 +25,10 @@ class TransactionRepositoryImpl(
         return dao.getTransactionsInRange(startTime, endTime).map { it.toDomain() }
     }
 
+    override suspend fun deleteTransaction(id: String) {
+        dao.deleteTransactionById(id)
+    }
+
     private fun TransactionEntity.toDomain() = Transaction(
         id = id,
         amount = amount,

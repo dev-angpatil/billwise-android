@@ -1,6 +1,7 @@
 package com.billwise.app.data.local
 
 import androidx.room.Dao
+import androidx.room.Delete
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
@@ -19,4 +20,10 @@ interface TransactionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTransactions(transactions: List<TransactionEntity>)
+
+    @Query("DELETE FROM transactions WHERE id = :id")
+    suspend fun deleteTransactionById(id: String)
+
+    @Query("DELETE FROM transactions")
+    suspend fun deleteAll()
 }

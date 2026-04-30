@@ -1,40 +1,209 @@
 package com.billwise.app.ui.insights
 
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.billwise.app.ui.viewmodel.InsightViewModel
+import java.util.Calendar
+
+private val BAR_COLOR = Color(0xFF818CF8)
 
 @Composable
 fun InsightsScreen(viewModel: InsightViewModel) {
-    val insights by viewModel.insights.collectAsState()
+    val insights         by viewModel.insights.collectAsState()
+    val dailySpend       by viewModel.dailySpend.collectAsState()
+    val categoryBreakdown by viewModel.categoryBreakdown.collectAsState()
+    val selectedMonth    by viewModel.selectedMonth.collectAsState()
+    val selectedYear     by viewModel.selectedYear.collectAsState()
 
-    Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
-        Text("Smart Insights", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        if (insights.isEmpty()) {
-            Text("No insights generated yet.")
-        } else {
-            LazyColumn {
-                items(insights) { insight ->
-                    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-                        Row(modifier = Modifier.padding(16.dp)) {
-                            Icon(Icons.Default.Lightbulb, contentDescription = "Insight", tint = MaterialTheme.colorScheme.primary)
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Text(insight)
+    val cal = remember { Calendar.getInstance() }
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(vertical = 16.dp)
+    ) {
+        item {
+            Text(
+                "Smart Insights",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onBackground
+            )
+        }
+
+        // ── 7-Day Spend Bar Chart ─────────────────────────────────────
+        if (dailySpend.isNotEmpty()) {
+            item {
+                Text("Daily Spending",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground)
+            }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        val maxAmount = dailySpend.values.maxOrNull() ?: 1.0
+                        // Show last 10 days with data
+                        val entries = dailySpend.entries.sortedBy { it.key }.takeLast(10)
+
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                        ) {
+                            val barWidth = size.width / (entries.size * 2f)
+                            val spacing  = barWidth
+                            entries.forEachIndexed { idx, (_, amount) ->
+                                val barH = (amount / maxAmount * size.height).toFloat()
+                                val x = idx * (barWidth + spacing) + spacing / 2
+                                drawRoundRect(
+                                    color = BAR_COLOR,
+                                    topLeft = Offset(x, size.height - barH),
+                                    size = Size(barWidth, barH),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            val entries2 = dailySpend.keys.sorted().takeLast(10)
+                            entries2.forEach { day ->
+                                Text(
+                                    "$day",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 9.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+
+        // ── Top Merchants ─────────────────────────────────────────────
+        if (categoryBreakdown.isNotEmpty()) {
+            item {
+                Text("Spending by Category",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground)
+            }
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val total = categoryBreakdown.values.sum()
+                        categoryBreakdown.entries.sortedByDescending { it.value }.forEach { (cat, amt) ->
+                            val frac = if (total > 0) (amt / total).toFloat() else 0f
+                            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                Row(
+                                    Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Text(cat, style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface)
+                                    Text("₹${String.format("%,.2f", amt)} · ${(frac*100).toInt()}%",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.primary)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(5.dp)
+                                        .clip(RoundedCornerShape(3.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth(frac)
+                                            .height(5.dp)
+                                            .clip(RoundedCornerShape(3.dp))
+                                            .background(MaterialTheme.colorScheme.primary)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Insight Cards ─────────────────────────────────────────────
+        if (insights.isNotEmpty()) {
+            item {
+                Text("AI Insights",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground)
+            }
+            items(insights) { insight ->
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(2.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            insight.take(2), // emoji prefix
+                            fontSize = 24.sp
+                        )
+                        Text(
+                            insight.drop(2).trim(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+        }
+
+        if (insights.isEmpty() && dailySpend.isEmpty()) {
+            item {
+                Box(Modifier.fillMaxWidth().padding(48.dp), contentAlignment = Alignment.Center) {
+                    Text("No insights yet. Add transactions to see patterns.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f))
+                }
+            }
+        }
     }
 }
+

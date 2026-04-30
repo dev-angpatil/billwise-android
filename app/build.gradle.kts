@@ -71,6 +71,9 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     ksp("androidx.room:room-compiler:$roomVersion")
 
+    // ML Kit - Text Recognition (OCR)
+    implementation("com.google.mlkit:text-recognition:16.0.0")
+
     // Retrofit
     implementation("com.squareup.retrofit2:retrofit:$retrofitVersion")
     implementation("com.squareup.retrofit2:converter-gson:$retrofitVersion")
