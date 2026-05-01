@@ -35,7 +35,9 @@ class TransactionViewModel(
         viewModelScope.launch {
             combine(_allTransactions, _searchQuery, _selectedCategory) { txns, query, cat ->
                 txns.filter { tx ->
-                    val matchesQuery = query.isBlank() || tx.merchant.contains(query, ignoreCase = true)
+                    val matchesQuery = query.isBlank() || 
+                                       tx.merchant.contains(query, ignoreCase = true) ||
+                                       (tx.merchantAlias?.contains(query, ignoreCase = true) == true)
                     val matchesCategory = cat == "All" || tx.category == cat
                     matchesQuery && matchesCategory
                 }
@@ -57,6 +59,22 @@ class TransactionViewModel(
             val isDuplicate = deduplicateTransactionUseCase(categorized, _allTransactions.value)
             if (!isDuplicate) {
                 transactionRepository.addTransaction(categorized)
+            }
+        }
+    }
+
+    fun updateMerchantAlias(transactionId: String, newAlias: String) {
+        viewModelScope.launch {
+            val tx = _allTransactions.value.find { it.id == transactionId }
+            if (tx != null) {
+                val finalAlias = newAlias.takeIf { it.isNotBlank() }
+                val updatedTx = tx.copy(merchantAlias = finalAlias)
+                transactionRepository.updateTransaction(updatedTx)
+                
+                // Auto-apply to other transactions with the exact same raw merchant name
+                _allTransactions.value.filter { it.merchant == tx.merchant && it.id != tx.id }.forEach { other ->
+                    transactionRepository.updateTransaction(other.copy(merchantAlias = finalAlias))
+                }
             }
         }
     }

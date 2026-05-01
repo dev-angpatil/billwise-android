@@ -15,7 +15,7 @@ class GenerateInsightsUseCase {
         val currentYear  = cal.get(Calendar.YEAR)
 
         val debits = transactions.filter {
-            it.type == TransactionType.DEBIT &&
+            !it.isIgnored && it.type == TransactionType.DEBIT &&
                 run {
                     cal.timeInMillis = it.datetime
                     cal.get(Calendar.MONTH) + 1 == currentMonth && cal.get(Calendar.YEAR) == currentYear
@@ -67,7 +67,26 @@ class GenerateInsightsUseCase {
         // Biggest single transaction
         val biggestTx = debits.maxByOrNull { it.amount }
         if (biggestTx != null) {
-            insights.add("🏆 Biggest purchase: ₹${String.format("%,.2f", biggestTx.amount)} at ${biggestTx.merchant}.")
+            insights.add("🏆 Biggest purchase: ₹${String.format("%,.2f", biggestTx.amount)} at ${biggestTx.merchantAlias ?: biggestTx.merchant}.")
+        }
+
+        // Recurring subscription check
+        val recurring = debits.groupBy { it.merchantAlias ?: it.merchant }
+            .filter { it.value.size >= 2 && it.value.all { tx -> tx.amount == it.value.first().amount } }
+        if (recurring.isNotEmpty()) {
+            insights.add("🔄 You have potential recurring payments for: ${recurring.keys.joinToString(", ")}.")
+        }
+
+        // Safe daily spend to hit budget
+        val today = Calendar.getInstance()
+        if (today.get(Calendar.MONTH) + 1 == currentMonth && today.get(Calendar.YEAR) == currentYear) {
+            val daysInMonth = today.getActualMaximum(Calendar.DAY_OF_MONTH)
+            val dayOfMonth = today.get(Calendar.DAY_OF_MONTH)
+            val daysRemaining = daysInMonth - dayOfMonth + 1
+            if (budgetLimit != null && budgetLimit > totalSpent && daysRemaining > 0) {
+                val safeDailySpend = (budgetLimit - totalSpent) / daysRemaining
+                insights.add("💡 To stay within budget, aim to spend no more than ₹${String.format("%,.2f", safeDailySpend)} per day.")
+            }
         }
 
         return insights

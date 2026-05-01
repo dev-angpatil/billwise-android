@@ -21,6 +21,10 @@ class TransactionRepositoryImpl(
         dao.insertTransaction(transaction.toEntity())
     }
 
+    override suspend fun updateTransaction(transaction: Transaction) {
+        dao.insertTransaction(transaction.toEntity())
+    }
+
     override suspend fun getTransactionsInRange(startTime: Long, endTime: Long): List<Transaction> {
         return dao.getTransactionsInRange(startTime, endTime).map { it.toDomain() }
     }
@@ -36,7 +40,10 @@ class TransactionRepositoryImpl(
         datetime = datetime,
         type = type,
         category = category,
-        source = source
+        source = source,
+        isIgnored = isIgnored,
+        merchantAlias = merchantAlias,
+        accountHint = accountHint
     )
 
     private fun Transaction.toEntity() = TransactionEntity(
@@ -46,6 +53,9 @@ class TransactionRepositoryImpl(
         datetime = datetime,
         type = type,
         category = category,
-        source = source
+        source = source,
+        isIgnored = isIgnored,
+        merchantAlias = merchantAlias,
+        accountHint = accountHint
     )
 }

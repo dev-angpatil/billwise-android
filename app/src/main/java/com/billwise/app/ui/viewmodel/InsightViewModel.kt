@@ -42,6 +42,9 @@ class InsightViewModel(
     private val _insights          = MutableStateFlow<List<String>>(emptyList())
     val insights: StateFlow<List<String>> = _insights.asStateFlow()
 
+    private val _monthlyTrend      = MutableStateFlow<Map<String, Double>>(emptyMap())
+    val monthlyTrend: StateFlow<Map<String, Double>> = _monthlyTrend.asStateFlow()
+
     private val _budget            = MutableStateFlow<Budget?>(null)
     val budget: StateFlow<Budget?> = _budget.asStateFlow()
 
@@ -50,33 +53,28 @@ class InsightViewModel(
     val budgetProgress: StateFlow<Float> = _budgetProgress.asStateFlow()
 
     init {
-        loadData()
-    }
-
-    private fun loadData() {
         viewModelScope.launch {
             combine(
                 transactionRepository.getAllTransactions(),
-                budgetRepository.getBudget()
-            ) { transactions, budget -> Pair(transactions, budget) }
-                .collect { (transactions, budget) ->
-                    val month = _selectedMonth.value
-                    val year  = _selectedYear.value
+                budgetRepository.getBudget(),
+                _selectedMonth,
+                _selectedYear
+            ) { transactions, budget, month, year ->
+                val spent  = analyzeSpendingUseCase.getTotalSpentInMonth(transactions, month, year)
+                val income = analyzeSpendingUseCase.getTotalIncomeInMonth(transactions, month, year)
 
-                    val spent  = analyzeSpendingUseCase.getTotalSpentInMonth(transactions, month, year)
-                    val income = analyzeSpendingUseCase.getTotalIncomeInMonth(transactions, month, year)
+                _totalSpent.value        = spent
+                _totalIncome.value       = income
+                _categoryBreakdown.value = analyzeSpendingUseCase.getCategoryBreakdownForMonth(transactions, month, year)
+                _dailySpend.value        = analyzeSpendingUseCase.getDailySpendForMonth(transactions, month, year)
+                _monthlyTrend.value      = analyzeSpendingUseCase.getMonthlySpendTrend(transactions)
+                _insights.value          = generateInsightsUseCase.getInsights(transactions, budget?.monthlyLimit)
+                _budget.value            = budget
 
-                    _totalSpent.value        = spent
-                    _totalIncome.value       = income
-                    _categoryBreakdown.value = analyzeSpendingUseCase.getCategoryBreakdownForMonth(transactions, month, year)
-                    _dailySpend.value        = analyzeSpendingUseCase.getDailySpendForMonth(transactions, month, year)
-                    _insights.value          = generateInsightsUseCase.getInsights(transactions, budget?.monthlyLimit)
-                    _budget.value            = budget
-
-                    _budgetProgress.value = if (budget != null && budget.monthlyLimit > 0) {
-                        (spent / budget.monthlyLimit).toFloat().coerceIn(0f, 1f)
-                    } else 0f
-                }
+                _budgetProgress.value = if (budget != null && budget.monthlyLimit > 0) {
+                    (spent / budget.monthlyLimit).toFloat().coerceIn(0f, 1f)
+                } else 0f
+            }.collect {}
         }
     }
 
@@ -87,7 +85,6 @@ class InsightViewModel(
         } else {
             _selectedMonth.value -= 1
         }
-        loadData()
     }
 
     fun nextMonth() {
@@ -101,7 +98,6 @@ class InsightViewModel(
         } else {
             _selectedMonth.value += 1
         }
-        loadData()
     }
 }
 

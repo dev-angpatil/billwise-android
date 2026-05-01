@@ -11,11 +11,40 @@ object BillParser {
     fun parse(rawData: String): Bill {
         // In a real app, this would use ML Kit or a backend service
         // For now, we return a mock bill based on some basic splits
-        val lines = rawData.lines()
-        val merchant = lines.firstOrNull() ?: "Unknown Merchant"
-        val amountLine = lines.find { it.contains(Regex("(?i)total")) } ?: "0.0"
-        val amountStr = amountLine.replace(Regex("[^0-9.]"), "")
-        val amount = amountStr.toDoubleOrNull() ?: 0.0
+        val lines = rawData.lines().map { it.trim() }.filter { it.isNotEmpty() }
+        if (lines.isEmpty()) {
+            return Bill(UUID.randomUUID().toString(), 0.0, "Unknown", System.currentTimeMillis(), rawData)
+        }
+
+        var merchant = lines.first()
+        var amount = 0.0
+
+        val totalLine = lines.find { it.contains(Regex("(?i)total")) }
+        if (totalLine != null) {
+            val amountStr = totalLine.replace(Regex("[^0-9.]"), "")
+            amount = amountStr.toDoubleOrNull() ?: 0.0
+        } else {
+            // No "total" found, could be "coffee 200" or a simple text.
+            // Extract the last number found as the amount.
+            val amountRegex = Regex("""(\d+(?:\.\d{1,2})?)""")
+            val allMatches = amountRegex.findAll(rawData).toList()
+            if (allMatches.isNotEmpty()) {
+                val lastMatch = allMatches.last().value
+                amount = lastMatch.toDoubleOrNull() ?: 0.0
+                
+                // If it's a single line like "coffee 200", remove the number to get merchant
+                if (lines.size == 1) {
+                    merchant = lines[0].replaceFirst(lastMatch, "").trim()
+                        .replace(Regex("""^(paid|for|to)\s+""", RegexOption.IGNORE_CASE), "")
+                        .replace(Regex("""\s+(paid|for|to)$""", RegexOption.IGNORE_CASE), "")
+                        .trim()
+                }
+            }
+        }
+        
+        if (merchant.isBlank() || merchant.matches(Regex("""\d+"""))) {
+            merchant = "Unknown Merchant"
+        }
 
         return Bill(
             id = UUID.randomUUID().toString(),

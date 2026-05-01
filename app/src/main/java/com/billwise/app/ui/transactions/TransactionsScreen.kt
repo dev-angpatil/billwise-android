@@ -145,7 +145,7 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                                 enableDismissFromStartToEnd = false,
                                 backgroundContent = {
                                     val color by animateColorAsState(
-                                        targetValue = if (dismissState.dismissDirection == SwipeToDismissBoxValue.EndToStart)
+                                        targetValue = if (dismissState.targetValue == SwipeToDismissBoxValue.EndToStart)
                                             Color(0xFFF43F5E) else Color.Transparent,
                                         label = "swipeBg"
                                     )
@@ -162,7 +162,7 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                                     }
                                 }
                             ) {
-                                TransactionItem(transaction)
+                                TransactionItemWithDialog(transaction, viewModel)
                             }
                         }
                     }
@@ -174,7 +174,36 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
 }
 
 @Composable
-fun TransactionItem(transaction: Transaction) {
+fun TransactionItemWithDialog(transaction: Transaction, viewModel: TransactionViewModel) {
+    var showEditDialog by remember { mutableStateOf(false) }
+    if (showEditDialog) {
+        var newAlias by remember { mutableStateOf(transaction.merchantAlias ?: transaction.merchant) }
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Rename Merchant") },
+            text = {
+                OutlinedTextField(
+                    value = newAlias,
+                    onValueChange = { newAlias = it },
+                    label = { Text("Merchant Alias") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateMerchantAlias(transaction.id, newAlias)
+                    showEditDialog = false
+                }) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
+            }
+        )
+    }
+    TransactionItem(transaction, onClick = { showEditDialog = true })
+}
+
+@Composable
+fun TransactionItem(transaction: Transaction, onClick: () -> Unit = {}) {
     val formatter = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
     val dateString = formatter.format(Date(transaction.datetime))
     val isCredit = transaction.type == TransactionType.CREDIT
@@ -182,6 +211,7 @@ fun TransactionItem(transaction: Transaction) {
     val amountPrefix = if (isCredit) "+" else "−"
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -216,7 +246,7 @@ fun TransactionItem(transaction: Transaction) {
                 }
                 Column {
                     Text(
-                        transaction.merchant,
+                        transaction.merchantAlias ?: transaction.merchant,
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,

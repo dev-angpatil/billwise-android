@@ -22,10 +22,10 @@ object OcrProcessor {
         return suspendCancellableCoroutine { cont ->
             recognizer.process(image)
                 .addOnSuccessListener { visionText ->
-                    cont.resume(visionText.text)
+                    if (cont.isActive) cont.resume(visionText.text)
                 }
                 .addOnFailureListener { exception ->
-                    cont.resumeWithException(exception)
+                    if (cont.isActive) cont.resumeWithException(exception)
                 }
         }
     }

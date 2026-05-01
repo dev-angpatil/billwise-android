@@ -111,9 +111,25 @@ fun DashboardScreen(viewModel: InsightViewModel) {
                                 colors = listOf(Color(0xFF312E81), Color(0xFF1E1B4B))
                             )
                         )
-                        .padding(20.dp)
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    // Abstract decorative shapes
+                    Canvas(modifier = Modifier.matchParentSize()) {
+                        drawCircle(
+                            color = Color(0xFF6366F1).copy(alpha = 0.2f),
+                            radius = size.width * 0.4f,
+                            center = Offset(size.width, 0f)
+                        )
+                        drawCircle(
+                            color = Color(0xFFEC4899).copy(alpha = 0.15f),
+                            radius = size.width * 0.25f,
+                            center = Offset(0f, size.height)
+                        )
+                    }
+                    
+                    Column(
+                        modifier = Modifier.padding(24.dp),
+                        verticalArrangement = Arrangement.spacedBy(14.dp)
+                    ) {
                         Text(
                             "Total Spent This Month",
                             style = MaterialTheme.typography.bodyMedium,
@@ -197,10 +213,11 @@ fun DashboardScreen(viewModel: InsightViewModel) {
                 )
             }
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
@@ -208,7 +225,7 @@ fun DashboardScreen(viewModel: InsightViewModel) {
                     ) {
                         val sortedEntries = categoryBreakdown.entries
                             .sortedByDescending { it.value }
-                        val maxVal = sortedEntries.firstOrNull()?.value ?: 1.0
+                        val maxVal = sortedEntries.firstOrNull()?.value?.takeIf { it > 0.0 } ?: 1.0
 
                         sortedEntries.forEachIndexed { idx, entry ->
                             val color = CATEGORY_COLORS[idx % CATEGORY_COLORS.size]
@@ -254,10 +271,11 @@ fun DashboardScreen(viewModel: InsightViewModel) {
             }
         } else {
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
                     Box(
                         modifier = Modifier

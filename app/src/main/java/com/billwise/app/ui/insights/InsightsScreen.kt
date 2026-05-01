@@ -27,6 +27,7 @@ private val BAR_COLOR = Color(0xFF818CF8)
 fun InsightsScreen(viewModel: InsightViewModel) {
     val insights         by viewModel.insights.collectAsState()
     val dailySpend       by viewModel.dailySpend.collectAsState()
+    val monthlyTrend     by viewModel.monthlyTrend.collectAsState()
     val categoryBreakdown by viewModel.categoryBreakdown.collectAsState()
     val selectedMonth    by viewModel.selectedMonth.collectAsState()
     val selectedYear     by viewModel.selectedYear.collectAsState()
@@ -59,13 +60,14 @@ fun InsightsScreen(viewModel: InsightViewModel) {
                     color = MaterialTheme.colorScheme.onBackground)
             }
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
-                        val maxAmount = dailySpend.values.maxOrNull() ?: 1.0
+                        val maxAmount = dailySpend.values.maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
                         // Show last 10 days with data
                         val entries = dailySpend.entries.sortedBy { it.key }.takeLast(10)
 
@@ -107,6 +109,62 @@ fun InsightsScreen(viewModel: InsightViewModel) {
             }
         }
 
+        // ── 6-Month Trend Bar Chart ───────────────────────────────────
+        if (monthlyTrend.isNotEmpty()) {
+            item {
+                Text("Monthly Trend",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.onBackground)
+            }
+            item {
+                ElevatedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        val maxAmount = monthlyTrend.values.maxOrNull()?.takeIf { it > 0.0 } ?: 1.0
+                        val entries = monthlyTrend.entries.toList()
+
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                        ) {
+                            val barWidth = size.width / (entries.size * 2f)
+                            val spacing  = barWidth
+                            entries.forEachIndexed { idx, (_, amount) ->
+                                val barH = (amount / maxAmount * size.height).toFloat()
+                                val x = idx * (barWidth + spacing) + spacing / 2
+                                drawRoundRect(
+                                    color = Color(0xFF34D399),
+                                    topLeft = Offset(x, size.height - barH),
+                                    size = Size(barWidth, barH),
+                                    cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f)
+                                )
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            entries.forEach { (month, _) ->
+                                Text(
+                                    month,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontSize = 10.sp,
+                                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
         // ── Top Merchants ─────────────────────────────────────────────
         if (categoryBreakdown.isNotEmpty()) {
             item {
@@ -116,10 +174,11 @@ fun InsightsScreen(viewModel: InsightViewModel) {
                     color = MaterialTheme.colorScheme.onBackground)
             }
             item {
-                Card(
+                ElevatedCard(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                    colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
