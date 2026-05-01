@@ -9,8 +9,8 @@ import java.util.Calendar
 object SmsParser {
 
     private val CURRENCY_KEYWORDS = listOf("₹", "rs", "inr")
-    private val DEBIT_KEYWORDS = listOf("debited", "dr.", "dr ", "spent", "paid", "sent", "withdrawn", "deducted")
-    private val CREDIT_KEYWORDS = listOf("credited", "cr.", "cr ", "received", "deposit", "added", "refund")
+    private val DEBIT_KEYWORDS = listOf("debited", "dr.", "dr ", "spent", "paid", "sent", "withdrawn", "deducted", "payment to")
+    private val CREDIT_KEYWORDS = listOf("credited", "cr.", "cr ", "received", "deposit", "added", "refund", "payment from", "payment received")
     private val SPAM_KEYWORDS = listOf("otp", "verification code", "offer", "sale", "discount", "loan", "win", "won", "reward")
 
     private fun normalize(text: String): String {
@@ -29,11 +29,17 @@ object SmsParser {
         // Must contain currency or specific numeric action (e.g., "debited by 190.00")
         val hasCurrency = CURRENCY_KEYWORDS.any { normalized.contains(it) }
         val hasDebitedBy = normalized.contains(Regex("""(?:debited|credited|dr|cr)\s*by\s*\d+"""))
-        if (!hasCurrency && !hasDebitedBy) return false
+        val hasUpiKeywords = normalized.contains("paid") || normalized.contains("sent") || normalized.contains("received") || normalized.contains("payment")
+        if (!hasCurrency && !hasDebitedBy && !hasUpiKeywords) return false
 
         // Filter spam
         if (SPAM_KEYWORDS.any { normalized.contains(it) }) {
-            return false
+            // allow rewards/cashbacks if 'received' is present
+            if ((normalized.contains("reward") || normalized.contains("cashback")) && normalized.contains("received")) {
+                // allow
+            } else {
+                return false
+            }
         }
         
         // Edge cases

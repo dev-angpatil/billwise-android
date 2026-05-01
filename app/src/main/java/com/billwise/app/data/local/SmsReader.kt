@@ -19,13 +19,13 @@ class SmsReader(private val context: Context) {
             Telephony.Sms.ADDRESS
         )
         
-        // Read only recent 500 messages to avoid freezing
+        // Read all SMS messages, without limit
         context.contentResolver.query(
             uri,
             projection,
             null,
             null,
-            "${Telephony.Sms.DATE} DESC LIMIT 500"
+            "${Telephony.Sms.DATE} DESC"
         )?.use { cursor ->
             val bodyIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.BODY)
             val addressIndex = cursor.getColumnIndexOrThrow(Telephony.Sms.ADDRESS)

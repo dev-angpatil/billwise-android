@@ -14,15 +14,13 @@ class GenerateInsightsUseCase {
         val currentMonth = cal.get(Calendar.MONTH) + 1
         val currentYear  = cal.get(Calendar.YEAR)
 
-        val debits = transactions.filter {
-            !it.isIgnored && it.type == TransactionType.DEBIT &&
-                run {
-                    cal.timeInMillis = it.datetime
-                    cal.get(Calendar.MONTH) + 1 == currentMonth && cal.get(Calendar.YEAR) == currentYear
-                }
+        val allDebits = transactions.filter { !it.isIgnored && it.type == TransactionType.DEBIT }
+        val currentMonthDebits = allDebits.filter {
+            cal.timeInMillis = it.datetime
+            cal.get(Calendar.MONTH) + 1 == currentMonth && cal.get(Calendar.YEAR) == currentYear
         }
 
-        val totalSpent = debits.sumOf { it.amount }
+        val totalSpent = currentMonthDebits.sumOf { it.amount }
 
         if (totalSpent > 0) {
             insights.add("💸 You've spent ₹${String.format("%,.2f", totalSpent)} this month.")
@@ -39,8 +37,8 @@ class GenerateInsightsUseCase {
             }
         }
 
-        // Top category
-        val categoryBreakdown = debits.groupBy { it.category }
+        // Top category for this month
+        val categoryBreakdown = currentMonthDebits.groupBy { it.category }
             .mapValues { e -> e.value.sumOf { it.amount } }
         val topCategory = categoryBreakdown.maxByOrNull { it.value }
         if (topCategory != null && totalSpent > 0) {
@@ -54,8 +52,8 @@ class GenerateInsightsUseCase {
             insights.add("🍕 Your food spending (₹${String.format("%,.2f", foodSpent)}) is quite high this month.")
         }
 
-        // Average daily spend
-        val uniqueDays = debits.map {
+        // Average daily spend for this month
+        val uniqueDays = currentMonthDebits.map {
             cal.timeInMillis = it.datetime
             cal.get(Calendar.DAY_OF_MONTH)
         }.toSet().size
@@ -64,17 +62,17 @@ class GenerateInsightsUseCase {
             insights.add("📅 You spend an average of ₹${String.format("%,.2f", avgDaily)} per day.")
         }
 
-        // Biggest single transaction
-        val biggestTx = debits.maxByOrNull { it.amount }
+        // Biggest single transaction this month
+        val biggestTx = currentMonthDebits.maxByOrNull { it.amount }
         if (biggestTx != null) {
             insights.add("🏆 Biggest purchase: ₹${String.format("%,.2f", biggestTx.amount)} at ${biggestTx.merchantAlias ?: biggestTx.merchant}.")
         }
 
-        // Recurring subscription check
-        val recurring = debits.groupBy { it.merchantAlias ?: it.merchant }
+        // Recurring subscription check (using ALL history)
+        val recurring = allDebits.groupBy { it.merchantAlias ?: it.merchant }
             .filter { it.value.size >= 2 && it.value.all { tx -> tx.amount == it.value.first().amount } }
         if (recurring.isNotEmpty()) {
-            insights.add("🔄 You have potential recurring payments for: ${recurring.keys.joinToString(", ")}.")
+            insights.add("🔄 You have potential recurring payments for: ${recurring.keys.joinToString(", ")}. Tap them in Transactions to tag them as Subscriptions or Rent!")
         }
 
         // Safe daily spend to hit budget
@@ -91,17 +89,17 @@ class GenerateInsightsUseCase {
             }
         }
 
-        // Frequent Merchant (by count)
-        val merchantCounts = debits.groupBy { it.merchantAlias ?: it.merchant }.mapValues { it.value.size }
+        // Frequent Merchant (using ALL history)
+        val merchantCounts = allDebits.groupBy { it.merchantAlias ?: it.merchant }.mapValues { it.value.size }
         val mostFrequent = merchantCounts.maxByOrNull { it.value }
         if (mostFrequent != null && mostFrequent.value >= 3) {
-            insights.add("🏪 You shop frequently at ${mostFrequent.key} (${mostFrequent.value} times this month).")
+            insights.add("🏪 You shop frequently at ${mostFrequent.key} (${mostFrequent.value} times historically).")
         }
 
-        // Weekend vs Weekday spending
+        // Weekend vs Weekday spending (using ALL history for better pattern detection)
         var weekendSpend = 0.0
         var weekdaySpend = 0.0
-        debits.forEach { tx ->
+        allDebits.forEach { tx ->
             cal.timeInMillis = tx.datetime
             val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
             if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
@@ -114,9 +112,9 @@ class GenerateInsightsUseCase {
             insights.add("🎉 You're a Weekend Spender! (₹${String.format("%,.2f", weekendSpend)} on weekends vs ₹${String.format("%,.2f", weekdaySpend)} on weekdays).")
         }
 
-        // Late Night Spender
+        // Late Night Spender (using ALL history)
         var lateNightSpend = 0.0
-        debits.forEach { tx ->
+        allDebits.forEach { tx ->
             cal.timeInMillis = tx.datetime
             val hour = cal.get(Calendar.HOUR_OF_DAY)
             if (hour >= 22 || hour <= 4) {

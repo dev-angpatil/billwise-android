@@ -1,9 +1,9 @@
 -- Merging decision tree log ---
 manifest
-ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-32:12
-INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-32:12
-INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-32:12
-INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-32:12
+ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-42:12
+INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-42:12
+INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-42:12
+INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:2:1-42:12
 MERGED from [com.google.mlkit:text-recognition:16.0.1] /home/devang/.gradle/caches/transforms-4/fbec13ab4ac2a4945ad0caccc6ce7761/transformed/text-recognition-16.0.1/AndroidManifest.xml:2:1-7:12
 MERGED from [com.google.android.gms:play-services-mlkit-text-recognition:19.0.1] /home/devang/.gradle/caches/transforms-4/479d1da81ed694a982160383eb69d257/transformed/play-services-mlkit-text-recognition-19.0.1/AndroidManifest.xml:2:1-8:12
 MERGED from [com.google.mlkit:text-recognition-bundled-common:17.0.0] /home/devang/.gradle/caches/transforms-4/899d551c529e2c87ef1613d6b75c49e8/transformed/text-recognition-bundled-common-17.0.0/AndroidManifest.xml:2:1-7:12
@@ -118,8 +118,8 @@ ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.x
 	android:name
 		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:8:22-62
 application
-ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:10:5-30:19
-INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:10:5-30:19
+ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:10:5-40:19
+INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:10:5-40:19
 MERGED from [com.google.android.gms:play-services-mlkit-text-recognition-common:19.1.0] /home/devang/.gradle/caches/transforms-4/6709b6aba36e9f8bfbd73aa5d07bf2ba/transformed/play-services-mlkit-text-recognition-common-19.1.0/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.android.gms:play-services-mlkit-text-recognition-common:19.1.0] /home/devang/.gradle/caches/transforms-4/6709b6aba36e9f8bfbd73aa5d07bf2ba/transformed/play-services-mlkit-text-recognition-common-19.1.0/AndroidManifest.xml:8:5-16:19
 MERGED from [com.google.mlkit:vision-common:17.3.0] /home/devang/.gradle/caches/transforms-4/646ee740762f7e0f8a470301357ccdfc/transformed/vision-common-17.3.0/AndroidManifest.xml:8:5-16:19
@@ -198,6 +198,22 @@ category#android.intent.category.LAUNCHER
 ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:27:17-77
 	android:name
 		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:27:27-74
+service#com.billwise.app.service.BillWiseNotificationListener
+ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:31:9-39:19
+	android:label
+		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:33:13-50
+	android:exported
+		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:35:13-36
+	android:permission
+		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:34:13-87
+	android:name
+		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:32:13-65
+intent-filter#action:name:android.service.notification.NotificationListenerService
+ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:36:13-38:29
+action#android.service.notification.NotificationListenerService
+ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:37:17-99
+	android:name
+		ADDED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml:37:25-96
 uses-sdk
 INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml reason: use-sdk injection requested
 INJECTED from /home/devang/Coding/BillWise-Android-1/app/src/main/AndroidManifest.xml
