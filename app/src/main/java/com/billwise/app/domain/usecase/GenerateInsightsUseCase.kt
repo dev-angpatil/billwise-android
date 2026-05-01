@@ -6,24 +6,33 @@ import java.util.Calendar
 
 class GenerateInsightsUseCase {
 
-    fun getInsights(transactions: List<Transaction>, budgetLimit: Double? = null): List<String> {
+    fun getInsights(
+        transactions: List<Transaction>, 
+        budgetLimit: Double? = null,
+        targetMonth: Int? = null, // 1-indexed (1=Jan, 12=Dec)
+        targetYear: Int? = null
+    ): List<String> {
         if (transactions.isEmpty()) return listOf("No transactions yet. Add some to get insights!")
 
         val insights = mutableListOf<String>()
         val cal = Calendar.getInstance()
-        val currentMonth = cal.get(Calendar.MONTH) + 1
-        val currentYear  = cal.get(Calendar.YEAR)
+        
+        val activeMonth = targetMonth ?: (cal.get(Calendar.MONTH) + 1)
+        val activeYear = targetYear ?: cal.get(Calendar.YEAR)
+        
+        val monthNames = arrayOf("January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December")
+        val monthName = monthNames.getOrNull(activeMonth - 1) ?: "This month"
 
         val allDebits = transactions.filter { !it.isIgnored && it.type == TransactionType.DEBIT }
-        val currentMonthDebits = allDebits.filter {
+        val activeMonthDebits = allDebits.filter {
             cal.timeInMillis = it.datetime
-            cal.get(Calendar.MONTH) + 1 == currentMonth && cal.get(Calendar.YEAR) == currentYear
+            cal.get(Calendar.MONTH) + 1 == activeMonth && cal.get(Calendar.YEAR) == activeYear
         }
 
-        val totalSpent = currentMonthDebits.sumOf { it.amount }
+        val totalSpent = activeMonthDebits.sumOf { it.amount }
 
         if (totalSpent > 0) {
-            insights.add("💸 You've spent ₹${String.format("%,.2f", totalSpent)} this month.")
+            insights.add("💸 You spent ₹${String.format("%,.2f", totalSpent)} in $monthName.")
         }
 
         // Budget alert
@@ -37,8 +46,8 @@ class GenerateInsightsUseCase {
             }
         }
 
-        // Top category for this month
-        val categoryBreakdown = currentMonthDebits.groupBy { it.category }
+        // Top category for active month
+        val categoryBreakdown = activeMonthDebits.groupBy { it.category }
             .mapValues { e -> e.value.sumOf { it.amount } }
         val topCategory = categoryBreakdown.maxByOrNull { it.value }
         if (topCategory != null && totalSpent > 0) {
@@ -49,11 +58,11 @@ class GenerateInsightsUseCase {
         // Food alert
         val foodSpent = categoryBreakdown["Food"] ?: 0.0
         if (foodSpent > 5000) {
-            insights.add("🍕 Your food spending (₹${String.format("%,.2f", foodSpent)}) is quite high this month.")
+            insights.add("🍕 Your food spending (₹${String.format("%,.2f", foodSpent)}) was quite high in $monthName.")
         }
 
-        // Average daily spend for this month
-        val uniqueDays = currentMonthDebits.map {
+        // Average daily spend for active month
+        val uniqueDays = activeMonthDebits.map {
             cal.timeInMillis = it.datetime
             cal.get(Calendar.DAY_OF_MONTH)
         }.toSet().size
@@ -62,8 +71,8 @@ class GenerateInsightsUseCase {
             insights.add("📅 You spend an average of ₹${String.format("%,.2f", avgDaily)} per day.")
         }
 
-        // Biggest single transaction this month
-        val biggestTx = currentMonthDebits.maxByOrNull { it.amount }
+        // Biggest single transaction active month
+        val biggestTx = activeMonthDebits.maxByOrNull { it.amount }
         if (biggestTx != null) {
             insights.add("🏆 Biggest purchase: ₹${String.format("%,.2f", biggestTx.amount)} at ${biggestTx.merchantAlias ?: biggestTx.merchant}.")
         }
@@ -75,9 +84,9 @@ class GenerateInsightsUseCase {
             insights.add("🔄 You have potential recurring payments for: ${recurring.keys.joinToString(", ")}. Tap them in Transactions to tag them as Subscriptions or Rent!")
         }
 
-        // Safe daily spend to hit budget
+        // Safe daily spend to hit budget (Only relevant if looking at the CURRENT month)
         val today = Calendar.getInstance()
-        if (today.get(Calendar.MONTH) + 1 == currentMonth && today.get(Calendar.YEAR) == currentYear) {
+        if (today.get(Calendar.MONTH) + 1 == activeMonth && today.get(Calendar.YEAR) == activeYear) {
             val daysInMonth = today.getActualMaximum(Calendar.DAY_OF_MONTH)
             val dayOfMonth = today.get(Calendar.DAY_OF_MONTH)
             val daysRemaining = daysInMonth - dayOfMonth + 1
@@ -130,7 +139,7 @@ class GenerateInsightsUseCase {
             !it.isIgnored && it.type == TransactionType.CREDIT &&
                 run {
                     cal.timeInMillis = it.datetime
-                    cal.get(Calendar.MONTH) + 1 == currentMonth && cal.get(Calendar.YEAR) == currentYear
+                    cal.get(Calendar.MONTH) + 1 == activeMonth && cal.get(Calendar.YEAR) == activeYear
                 }
         }
         val totalIncome = credits.sumOf { it.amount }
@@ -138,9 +147,9 @@ class GenerateInsightsUseCase {
             val saved = totalIncome - totalSpent
             if (saved > 0) {
                 val savingRate = (saved / totalIncome * 100).toInt()
-                insights.add("📈 Great job! You've saved ${savingRate}% of your income (₹${String.format("%,.2f", saved)}) so far.")
+                insights.add("📈 Great job! You saved ${savingRate}% of your income (₹${String.format("%,.2f", saved)}) in $monthName.")
             } else {
-                insights.add("⚠️ You are spending more than you are earning this month!")
+                insights.add("⚠️ You spent more than you earned in $monthName!")
             }
         }
 

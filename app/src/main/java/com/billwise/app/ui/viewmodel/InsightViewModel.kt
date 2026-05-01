@@ -68,7 +68,7 @@ class InsightViewModel(
                 _categoryBreakdown.value = analyzeSpendingUseCase.getCategoryBreakdownForMonth(transactions, month, year)
                 _dailySpend.value        = analyzeSpendingUseCase.getDailySpendForMonth(transactions, month, year)
                 _monthlyTrend.value      = analyzeSpendingUseCase.getMonthlySpendTrend(transactions)
-                _insights.value          = generateInsightsUseCase.getInsights(transactions, budget?.monthlyLimit)
+                _insights.value          = generateInsightsUseCase.getInsights(transactions, budget?.monthlyLimit, month, year)
                 _budget.value            = budget
 
                 _budgetProgress.value = if (budget != null && budget.monthlyLimit > 0) {
