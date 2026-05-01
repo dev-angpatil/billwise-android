@@ -55,7 +55,7 @@ class TransactionViewModel(
 
     fun addTransaction(transaction: Transaction) {
         viewModelScope.launch {
-            val categorized = categorizeTransactionUseCase(transaction)
+            val categorized = categorizeTransactionUseCase(transaction, _allTransactions.value)
             val isDuplicate = deduplicateTransactionUseCase(categorized, _allTransactions.value)
             if (!isDuplicate) {
                 transactionRepository.addTransaction(categorized)
@@ -74,6 +74,21 @@ class TransactionViewModel(
                 // Auto-apply to other transactions with the exact same raw merchant name
                 _allTransactions.value.filter { it.merchant == tx.merchant && it.id != tx.id }.forEach { other ->
                     transactionRepository.updateTransaction(other.copy(merchantAlias = finalAlias))
+                }
+            }
+        }
+    }
+
+    fun updateTransactionCategory(transactionId: String, newCategory: String) {
+        viewModelScope.launch {
+            val tx = _allTransactions.value.find { it.id == transactionId }
+            if (tx != null) {
+                val updatedTx = tx.copy(category = newCategory)
+                transactionRepository.updateTransaction(updatedTx)
+                
+                // Auto-apply this new category to other transactions with the exact same raw merchant name
+                _allTransactions.value.filter { it.merchant == tx.merchant && it.id != tx.id }.forEach { other ->
+                    transactionRepository.updateTransaction(other.copy(category = newCategory))
                 }
             }
         }

@@ -178,19 +178,36 @@ fun TransactionItemWithDialog(transaction: Transaction, viewModel: TransactionVi
     var showEditDialog by remember { mutableStateOf(false) }
     if (showEditDialog) {
         var newAlias by remember { mutableStateOf(transaction.merchantAlias ?: transaction.merchant) }
+        var newCategory by remember { mutableStateOf(transaction.category) }
+        
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("Rename Merchant") },
+            title = { Text("Edit Transaction Details") },
             text = {
-                OutlinedTextField(
-                    value = newAlias,
-                    onValueChange = { newAlias = it },
-                    label = { Text("Merchant Alias") }
-                )
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = newAlias,
+                        onValueChange = { newAlias = it },
+                        label = { Text("Merchant Alias") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = newCategory,
+                        onValueChange = { newCategory = it },
+                        label = { Text("Category") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Changes to Alias and Category will automatically apply to all past and future transactions with this exact merchant.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                }
             },
             confirmButton = {
                 TextButton(onClick = {
                     viewModel.updateMerchantAlias(transaction.id, newAlias)
+                    viewModel.updateTransactionCategory(transaction.id, newCategory)
                     showEditDialog = false
                 }) { Text("Save") }
             },

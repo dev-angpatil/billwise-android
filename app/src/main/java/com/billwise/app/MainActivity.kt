@@ -2,7 +2,9 @@ package com.billwise.app
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -66,12 +68,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Manual DI
-        db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "billwise-db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
-            .build()
-
-        val transactionRepo = TransactionRepositoryImpl(db.transactionDao())
+        // Get singletons from Application
+        val app = application as BillWiseApplication
+        db = app.db
+        val transactionRepo = app.transactionRepository
         val billRepo        = BillRepositoryImpl(db.billDao())
         val budgetRepo      = BudgetRepositoryImpl(db.budgetDao())
 
@@ -99,6 +99,11 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+        if (!isNotificationServiceEnabled()) {
+            Toast.makeText(this, "Please enable Notification Access to track PhonePe/GPay", Toast.LENGTH_LONG).show()
+            startActivity(Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS"))
+        }
+
         setContent {
             BillWiseTheme {
                 MainScreen(transactionViewModel, insightViewModel, billViewModel, budgetViewModel)
@@ -113,6 +118,12 @@ class MainActivity : ComponentActivity() {
                 transactionViewModel.addTransaction(it)
             }
         }
+    }
+
+    private fun isNotificationServiceEnabled(): Boolean {
+        val pkgName = packageName
+        val flat = Settings.Secure.getString(contentResolver, "enabled_notification_listeners")
+        return flat != null && flat.contains(pkgName)
     }
 }
 
