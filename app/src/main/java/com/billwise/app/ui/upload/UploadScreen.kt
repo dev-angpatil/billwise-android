@@ -7,24 +7,21 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CameraAlt
-import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.billwise.app.data.ocr.OcrProcessor
 import com.billwise.app.ui.viewmodel.BillViewModel
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadScreen(viewModel: BillViewModel) {
-    val tabs = listOf("📷 Scan", "📋 Paste", "✏️ Manual")
+    val tabs = listOf("📄 PDF", "📋 Paste", "✏️ Manual")
     var selectedTab by remember { mutableStateOf(0) }
 
     Column(
@@ -59,104 +56,9 @@ fun UploadScreen(viewModel: BillViewModel) {
         Spacer(Modifier.height(16.dp))
 
         when (selectedTab) {
-            0 -> OcrScanTab(viewModel)
+            0 -> PdfUploadTab(viewModel)
             1 -> PasteTextTab(viewModel)
             2 -> ManualTransactionForm(viewModel, onSuccess = { selectedTab = 0 })
-        }
-    }
-}
-
-@Composable
-private fun OcrScanTab(viewModel: BillViewModel) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    var extractedText by remember { mutableStateOf("") }
-    var isProcessing  by remember { mutableStateOf(false) }
-    var statusMessage by remember { mutableStateOf<String?>(null) }
-    var pickedUri     by remember { mutableStateOf<Uri?>(null) }
-
-    val galleryLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.GetContent()
-    ) { uri ->
-        if (uri != null) {
-            pickedUri = uri
-            isProcessing = true
-            scope.launch {
-                try {
-                    extractedText = OcrProcessor.extractText(context, uri)
-                    statusMessage = if (extractedText.isBlank()) "No text found in image." else null
-                } catch (e: Exception) {
-                    statusMessage = "OCR failed: ${e.message}"
-                } finally {
-                    isProcessing = false
-                }
-            }
-        }
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            "Pick a bill photo from your gallery to extract text automatically.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
-        )
-
-        OutlinedButton(
-            onClick = { galleryLauncher.launch("image/*") },
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Icon(Icons.Default.PhotoLibrary, contentDescription = null)
-            Spacer(Modifier.width(8.dp))
-            Text("Choose from Gallery")
-        }
-
-        if (isProcessing) {
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
-        }
-
-        if (extractedText.isNotBlank()) {
-            OutlinedTextField(
-                value = extractedText,
-                onValueChange = { extractedText = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-                label = { Text("Extracted Text (editable)") }
-            )
-
-            Button(
-                onClick = {
-                    viewModel.uploadBill(extractedText)
-                    statusMessage = "✅ Bill parsed and added!"
-                    extractedText = ""
-                },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Process Bill", fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        statusMessage?.let { msg ->
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = if (msg.startsWith("✅"))
-                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
-                    else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
-                )
-            ) {
-                Text(
-                    msg,
-                    modifier = Modifier.padding(12.dp),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (msg.startsWith("✅"))
-                        MaterialTheme.colorScheme.secondary
-                    else MaterialTheme.colorScheme.error
-                )
-            }
         }
     }
 }
@@ -216,3 +118,83 @@ private fun PasteTextTab(viewModel: BillViewModel) {
     }
 }
 
+@Composable
+private fun PdfUploadTab(viewModel: BillViewModel) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isProcessing  by remember { mutableStateOf(false) }
+    var statusMessage by remember { mutableStateOf<String?>(null) }
+
+    val pdfLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri != null) {
+            isProcessing = true
+            statusMessage = "Extracting text from PDF..."
+            scope.launch {
+                try {
+                    val text = com.billwise.app.data.parser.PdfParser.extractTextFromUri(context, uri)
+                    if (text.isNotBlank()) {
+                        statusMessage = "Processing statements via AI..."
+                        viewModel.uploadBankStatement(text)
+                        statusMessage = "✅ Statement processed and transactions added!"
+                    } else {
+                        statusMessage = "No text found in PDF."
+                    }
+                } catch (e: Exception) {
+                    statusMessage = "PDF parsing failed: ${e.message}"
+                } finally {
+                    isProcessing = false
+                }
+            }
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "Upload a bank statement PDF. BillWise will extract all transactions automatically using AI.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f)
+        )
+
+        OutlinedButton(
+            onClick = { pdfLauncher.launch("application/pdf") },
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.PictureAsPdf, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text("Select Bank Statement PDF")
+        }
+
+        if (isProcessing) {
+            Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(8.dp))
+                    Text(statusMessage ?: "Processing...", style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+
+        if (!isProcessing && statusMessage != null && !statusMessage!!.contains("Processing")) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = if (statusMessage!!.startsWith("✅"))
+                        MaterialTheme.colorScheme.secondary.copy(alpha = 0.15f)
+                    else MaterialTheme.colorScheme.error.copy(alpha = 0.15f)
+                )
+            ) {
+                Text(
+                    statusMessage!!,
+                    modifier = Modifier.padding(12.dp),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (statusMessage!!.startsWith("✅"))
+                        MaterialTheme.colorScheme.secondary
+                    else MaterialTheme.colorScheme.error
+                )
+            }
+        }
+    }
+}

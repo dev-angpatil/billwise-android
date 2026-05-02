@@ -3,13 +3,14 @@ package com.billwise.app.domain.usecase
 import com.billwise.app.domain.model.Transaction
 import com.billwise.app.domain.model.TransactionType
 import java.util.Calendar
+import java.util.concurrent.TimeUnit
 
 class GenerateInsightsUseCase {
 
     fun getInsights(
         transactions: List<Transaction>, 
         budgetLimit: Double? = null,
-        targetMonth: Int? = null, // 1-indexed (1=Jan, 12=Dec)
+        targetMonth: Int? = null,
         targetYear: Int? = null
     ): List<String> {
         if (transactions.isEmpty()) return listOf("No transactions yet. Add some to get insights!")
@@ -32,128 +33,137 @@ class GenerateInsightsUseCase {
         val totalSpent = activeMonthDebits.sumOf { it.amount }
 
         if (totalSpent > 0) {
-            insights.add("💸 You spent ₹${String.format("%,.2f", totalSpent)} in $monthName.")
+            insights.add("💸 You spent ₹${String.format("%,.0f", totalSpent)} in $monthName.")
         }
 
-        // Budget alert
+        // 1. Budget Monitoring
         if (budgetLimit != null && budgetLimit > 0 && totalSpent > 0) {
             val pct = (totalSpent / budgetLimit * 100).toInt()
+            val calToday = Calendar.getInstance()
+            val dayOfMonth = if (calToday.get(Calendar.MONTH) + 1 == activeMonth) calToday.get(Calendar.DAY_OF_MONTH) else 30
+            val totalDays = calToday.getActualMaximum(Calendar.DAY_OF_MONTH)
+            
+            val projected = (totalSpent / dayOfMonth) * totalDays
+            
             when {
                 totalSpent >= budgetLimit ->
-                    insights.add("🚨 You've exceeded your ₹${String.format("%,.0f", budgetLimit)} budget by ₹${String.format("%,.2f", totalSpent - budgetLimit)}!")
-                pct >= 80 ->
-                    insights.add("⚠️ You've used ${pct}% of your ₹${String.format("%,.0f", budgetLimit)} monthly budget.")
+                    insights.add("🚨 Budget Alert: You've exceeded your ₹${String.format("%,.0f", budgetLimit)} limit!")
+                projected > budgetLimit -> {
+                    val daysRemaining = totalDays - dayOfMonth
+                    val remainingBudget = budgetLimit - totalSpent
+                    val allowPerDay = remainingBudget / daysRemaining.coerceAtLeast(1)
+                    insights.add("⚠️ Pace Alert: You're on track to exceed your budget. Limit spending to ₹${String.format("%.0f", allowPerDay)}/day to stay safe.")
+                }
+                pct >= 85 ->
+                    insights.add("⚠️ Budget Warning: You've consumed ${pct}% of your ₹${String.format("%,.0f", budgetLimit)} budget.")
             }
         }
 
-        // Top category for active month
+        // 2. Weekly Anomaly Detection
+        val now = System.currentTimeMillis()
+        val oneWeekAgo = now - TimeUnit.DAYS.toMillis(7)
+        val recentSpend = allDebits.filter { it.datetime >= oneWeekAgo }.sumOf { it.amount }
+        
+        // Compare to 4-week average
+        val fourWeekSpend = allDebits.filter { it.datetime >= (now - TimeUnit.DAYS.toMillis(28)) }.sumOf { it.amount }
+        val fourWeekAvg = fourWeekSpend / 4.0
+        
+        if (recentSpend > (fourWeekAvg * 1.5) && fourWeekAvg > 1000) {
+            insights.add("📉 Spending Spike: This week's spend (₹${String.format("%.0f", recentSpend)}) is 50% higher than your 4-week average.")
+        }
+
+        // 3. Category Intelligence
         val categoryBreakdown = activeMonthDebits.groupBy { it.category }
             .mapValues { e -> e.value.sumOf { it.amount } }
         val topCategory = categoryBreakdown.maxByOrNull { it.value }
         if (topCategory != null && totalSpent > 0) {
             val pct = (topCategory.value / totalSpent * 100).toInt()
-            insights.add("📊 ${topCategory.key} is your biggest spend at ${pct}% (₹${String.format("%,.2f", topCategory.value)}).")
-        }
-
-        // Food alert
-        val foodSpent = categoryBreakdown["Food"] ?: 0.0
-        if (foodSpent > 5000) {
-            insights.add("🍕 Your food spending (₹${String.format("%,.2f", foodSpent)}) was quite high in $monthName.")
-        }
-
-        // Average daily spend for active month
-        val uniqueDays = activeMonthDebits.map {
-            cal.timeInMillis = it.datetime
-            cal.get(Calendar.DAY_OF_MONTH)
-        }.toSet().size
-        if (uniqueDays > 0) {
-            val avgDaily = totalSpent / uniqueDays
-            insights.add("📅 You spend an average of ₹${String.format("%,.2f", avgDaily)} per day.")
-        }
-
-        // Biggest single transaction active month
-        val biggestTx = activeMonthDebits.maxByOrNull { it.amount }
-        if (biggestTx != null) {
-            insights.add("🏆 Biggest purchase: ₹${String.format("%,.2f", biggestTx.amount)} at ${biggestTx.merchantAlias ?: biggestTx.merchant}.")
-        }
-
-        // Recurring subscription check (using ALL history)
-        val recurring = allDebits.groupBy { it.merchantAlias ?: it.merchant }
-            .filter { it.value.size >= 2 && it.value.all { tx -> tx.amount == it.value.first().amount } }
-        if (recurring.isNotEmpty()) {
-            insights.add("🔄 You have potential recurring payments for: ${recurring.keys.joinToString(", ")}. Tap them in Transactions to tag them as Subscriptions or Rent!")
-        }
-
-        // Safe daily spend to hit budget (Only relevant if looking at the CURRENT month)
-        val today = Calendar.getInstance()
-        if (today.get(Calendar.MONTH) + 1 == activeMonth && today.get(Calendar.YEAR) == activeYear) {
-            val daysInMonth = today.getActualMaximum(Calendar.DAY_OF_MONTH)
-            val dayOfMonth = today.get(Calendar.DAY_OF_MONTH)
-            val daysRemaining = daysInMonth - dayOfMonth + 1
-            if (budgetLimit != null && budgetLimit > totalSpent && daysRemaining > 0) {
-                val safeDailySpend = (budgetLimit - totalSpent) / daysRemaining
-                insights.add("💡 To stay within budget, aim to spend no more than ₹${String.format("%,.2f", safeDailySpend)} per day.")
-            } else if (budgetLimit != null && budgetLimit <= totalSpent) {
-                insights.add("🚫 You have 0 safe daily spend left. Try to minimize expenses.")
+            val icon = when(topCategory.key) {
+                "Food & Dining" -> "🍕"
+                "Shopping" -> "🛍️"
+                "Groceries" -> "🛒"
+                "Transport & Travel" -> "🚗"
+                else -> "📊"
             }
+            insights.add("$icon Top Expense: ${topCategory.key} accounts for ${pct}% of your spend (₹${String.format("%,.0f", topCategory.value)}).")
         }
 
-        // Frequent Merchant (using ALL history)
-        val merchantCounts = allDebits.groupBy { it.merchantAlias ?: it.merchant }.mapValues { it.value.size }
-        val mostFrequent = merchantCounts.maxByOrNull { it.value }
-        if (mostFrequent != null && mostFrequent.value >= 3) {
-            insights.add("🏪 You shop frequently at ${mostFrequent.key} (${mostFrequent.value} times historically).")
+        // 4. Subscription Detection
+        val subscriptionDetector = DetectSubscriptionsUseCase()
+        val detectedSubscriptions = subscriptionDetector(transactions)
+        if (detectedSubscriptions.isNotEmpty()) {
+            val names = detectedSubscriptions.take(3).joinToString(", ") { it.merchant }
+            insights.add("🏷️ Fixed Costs: Detected recurring payments for $names.")
         }
 
-        // Weekend vs Weekday spending (using ALL history for better pattern detection)
-        var weekendSpend = 0.0
-        var weekdaySpend = 0.0
-        allDebits.forEach { tx ->
-            cal.timeInMillis = tx.datetime
-            val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
-            if (dayOfWeek == Calendar.SATURDAY || dayOfWeek == Calendar.SUNDAY) {
-                weekendSpend += tx.amount
-            } else {
-                weekdaySpend += tx.amount
-            }
-        }
-        if (weekendSpend > weekdaySpend && weekendSpend > 0) {
-            insights.add("🎉 You're a Weekend Spender! (₹${String.format("%,.2f", weekendSpend)} on weekends vs ₹${String.format("%,.2f", weekdaySpend)} on weekdays).")
+        // 5. Daily Burn Heuristic
+        val daysPassed = if (cal.get(Calendar.MONTH) + 1 == activeMonth) cal.get(Calendar.DAY_OF_MONTH) else 30
+        val avgDaily = totalSpent / daysPassed
+        if (avgDaily > 0) {
+            insights.add("📅 Burn Rate: You spend an average of ₹${String.format("%,.0f", avgDaily)} per day.")
         }
 
-        // Late Night Spender (using ALL history)
-        var lateNightSpend = 0.0
-        allDebits.forEach { tx ->
-            cal.timeInMillis = tx.datetime
-            val hour = cal.get(Calendar.HOUR_OF_DAY)
-            if (hour >= 22 || hour <= 4) {
-                lateNightSpend += tx.amount
-            }
-        }
-        if (lateNightSpend > 2000) {
-            insights.add("🌙 Night Owl Alert! You've spent ₹${String.format("%,.2f", lateNightSpend)} between 10 PM and 4 AM.")
-        }
-
-        // Income vs Expense Ratio
-        val credits = transactions.filter {
+        // 6. Savings Rate
+        val activeMonthCredits = transactions.filter {
             !it.isIgnored && it.type == TransactionType.CREDIT &&
                 run {
                     cal.timeInMillis = it.datetime
                     cal.get(Calendar.MONTH) + 1 == activeMonth && cal.get(Calendar.YEAR) == activeYear
                 }
         }
-        val totalIncome = credits.sumOf { it.amount }
+        val totalIncome = activeMonthCredits.sumOf { it.amount }
         if (totalIncome > 0 && totalSpent > 0) {
             val saved = totalIncome - totalSpent
             if (saved > 0) {
                 val savingRate = (saved / totalIncome * 100).toInt()
-                insights.add("📈 Great job! You saved ${savingRate}% of your income (₹${String.format("%,.2f", saved)}) in $monthName.")
+                insights.add("📈 Savings: You saved ${savingRate}% of your income (₹${String.format("%,.0f", saved)}) so far.")
             } else {
-                insights.add("⚠️ You spent more than you earned in $monthName!")
+                insights.add("⚠️ Cashflow: Your spending has exceeded your income for $monthName.")
             }
+        }
+
+        // 7. Category Habit Comparison
+        val analyzer = AnalyzeSpendingUseCase()
+        topCategory?.let { (cat, amt) ->
+            val avg = analyzer.getCategoryAveragePastMonths(transactions, cat)
+            if (avg > 0) {
+                val diff = amt - avg
+                val pct = (abs(diff) / avg * 100).toInt()
+                if (pct >= 20) {
+                    val msg = if (diff > 0) "📈 You spent ${pct}% more on $cat than your 3-month average."
+                             else "📉 Great job! You spent ${pct}% less on $cat than your usual average."
+                    insights.add(msg)
+                }
+            }
+        }
+
+        // 8. Merchant Frequency
+        val merchantCounts = allDebits
+            .map { it.merchantAlias ?: it.merchant }
+            .filter { it != "UNCATEGORISED" && it != "UNKNOWN" }
+            .groupBy { it }
+            .mapValues { it.value.size }
+        
+        val mostFrequent = merchantCounts.maxByOrNull { it.value }
+        if (mostFrequent != null && mostFrequent.value >= 4) {
+            insights.add("🏪 Habit Loop: You've shopped at ${mostFrequent.key} ${mostFrequent.value} times. Consider if there are bulk-buy options!")
         }
 
         return insights
     }
-}
 
+    private fun abs(n: Double) = if (n < 0) -n else n
+
+    fun formatTransactionsForAi(transactions: List<Transaction>): String {
+        val subscriptionDetector = DetectSubscriptionsUseCase()
+        val subscriptions = subscriptionDetector(transactions).map { it.merchant.uppercase() }
+        
+        return transactions.filter { !it.isIgnored && it.type == TransactionType.DEBIT }
+            .takeLast(50) // Last 50 transactions for context
+            .joinToString("\n") { tx ->
+                val recurring = if (subscriptions.contains(tx.merchant.uppercase())) " (Recurring)" else ""
+                val date = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.ENGLISH).format(java.util.Date(tx.datetime))
+                "- $date: ${tx.merchant} | Category: ${tx.category} | Amount: ₹${tx.amount}$recurring"
+            }
+    }
+}

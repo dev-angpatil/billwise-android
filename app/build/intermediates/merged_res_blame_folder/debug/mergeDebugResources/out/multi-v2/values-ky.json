@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.billwise.app-mergeDebugResources-61:/values-ky/values-ky.xml",
+            "outputFile": "com.billwise.app-mergeDebugResources-60:/values-ky/values-ky.xml",
             "map": [
                 {
                     "source": "/home/devang/.gradle/caches/transforms-4/6f04ca2c18884ea2ca23be5e38d3c303/transformed/play-services-basement-18.4.0/res/values-ky/values.xml",

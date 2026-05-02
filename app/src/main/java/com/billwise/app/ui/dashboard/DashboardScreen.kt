@@ -49,6 +49,10 @@ fun DashboardScreen(viewModel: InsightViewModel) {
     val budget            by viewModel.budget.collectAsState()
     val selectedMonth     by viewModel.selectedMonth.collectAsState()
     val selectedYear      by viewModel.selectedYear.collectAsState()
+    val avgDailySpend     by viewModel.averageDailySpend.collectAsState()
+    val dailyBudget       by viewModel.dailyBudget.collectAsState()
+    val insights          by viewModel.insights.collectAsState()
+    val overLimitCategories by viewModel.overLimitCategories.collectAsState()
 
     val animatedProgress by animateFloatAsState(
         targetValue = budgetProgress,
@@ -196,6 +200,63 @@ fun DashboardScreen(viewModel: InsightViewModel) {
                                     style = MaterialTheme.typography.bodyMedium,
                                     color = Color(0xFF34D399), fontWeight = FontWeight.SemiBold)
                             }
+                            Column {
+                                Text("Daily Burn", style = MaterialTheme.typography.bodySmall,
+                                    color = Color.White.copy(alpha = 0.6f))
+                                Text("₹${String.format("%.0f", avgDailySpend)}",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = if (avgDailySpend > dailyBudget && dailyBudget > 0) Color(0xFFF87171) else Color(0xFF34D399),
+                                    fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── Over-Limit Banners ────────────────────────────────────────────
+        items(overLimitCategories) { category ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            ) {
+                Row(
+                    modifier = Modifier.padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("⚠️", fontSize = 20.sp)
+                    Text(
+                        "$category limit exceeded!",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer
+                    )
+                }
+            }
+        }
+
+        // ── Subscriptions & Alerts ────────────────────────────────────────
+        val fixedCostsInsight = insights.find { it.contains("Fixed Costs") }
+        if (fixedCostsInsight != null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text("🏷️", fontSize = 24.sp)
+                        Column {
+                            Text("Fixed Costs Detected", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.Bold)
+                            Text(fixedCostsInsight.replace("🏷️", "").trim(), style = MaterialTheme.typography.bodySmall)
                         }
                     }
                 }

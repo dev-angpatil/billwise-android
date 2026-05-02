@@ -6,6 +6,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AttachMoney
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -15,7 +16,8 @@ import androidx.compose.ui.unit.dp
 import com.billwise.app.domain.model.TransactionSource
 import com.billwise.app.domain.model.TransactionType
 import com.billwise.app.ui.viewmodel.BillViewModel
-import java.util.UUID
+import java.text.SimpleDateFormat
+import java.util.*
 
 private val CATEGORIES = listOf("Food", "Transport", "Shopping", "Subscriptions", "Others", "Uncategorized")
 
@@ -29,8 +31,21 @@ fun ManualTransactionForm(
     var merchant    by remember { mutableStateOf("") }
     var category    by remember { mutableStateOf("Others") }
     var isDebit     by remember { mutableStateOf(true) }
+    var selectedDate by remember { mutableStateOf(Calendar.getInstance()) }
     var errorMsg    by remember { mutableStateOf<String?>(null) }
     var categoryExpanded by remember { mutableStateOf(false) }
+
+    val datePickerDialog = android.app.DatePickerDialog(
+        androidx.compose.ui.platform.LocalContext.current,
+        { _, y, m, d ->
+            val newCal = Calendar.getInstance()
+            newCal.set(y, m, d)
+            selectedDate = newCal
+        },
+        selectedDate.get(Calendar.YEAR),
+        selectedDate.get(Calendar.MONTH),
+        selectedDate.get(Calendar.DAY_OF_MONTH)
+    )
 
     Column(
         modifier = Modifier
@@ -82,6 +97,20 @@ fun ManualTransactionForm(
             )
         }
 
+        // Date Picker Trigger
+        OutlinedTextField(
+            value = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(selectedDate.time),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text("Transaction Date") },
+            modifier = Modifier.fillMaxWidth(),
+            trailingIcon = {
+                IconButton(onClick = { datePickerDialog.show() }) {
+                    Icon(Icons.Default.DateRange, contentDescription = null)
+                }
+            }
+        )
+
         // Category dropdown
         ExposedDropdownMenuBox(
             expanded = categoryExpanded,
@@ -130,7 +159,8 @@ fun ManualTransactionForm(
                     amount = amountVal,
                     merchant = merchant.trim(),
                     category = category,
-                    type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT
+                    type = if (isDebit) TransactionType.DEBIT else TransactionType.CREDIT,
+                    date = selectedDate.timeInMillis
                 )
                 onSuccess()
             },

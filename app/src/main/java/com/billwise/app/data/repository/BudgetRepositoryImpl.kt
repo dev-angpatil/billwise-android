@@ -11,25 +11,37 @@ class BudgetRepositoryImpl(
     private val dao: BudgetDao
 ) : BudgetRepository {
 
-    override fun getBudget(): Flow<Budget?> {
-        return dao.getBudget().map { it?.toDomain() }
+    override fun getBudgetsForMonth(month: Int, year: Int): Flow<List<Budget>> {
+        return dao.getBudgetsForMonth(month, year).map { list -> list.map { it.toDomain() } }
     }
 
     override suspend fun saveBudget(budget: Budget) {
         dao.upsertBudget(budget.toEntity())
     }
 
+    override suspend fun getBudgetByCategory(category: String, month: Int, year: Int): Budget? {
+        return dao.getBudgetByCategory(category, month, year)?.toDomain()
+    }
+
     private fun BudgetEntity.toDomain() = Budget(
         id = id,
+        category = category,
         monthlyLimit = monthlyLimit,
         month = month,
-        year = year
+        year = year,
+        hasNotified75 = hasNotified75,
+        hasNotified100 = hasNotified100,
+        lastMonthSpend = lastMonthSpend
     )
 
     private fun Budget.toEntity() = BudgetEntity(
         id = id,
+        category = category,
         monthlyLimit = monthlyLimit,
         month = month,
-        year = year
+        year = year,
+        hasNotified75 = hasNotified75,
+        hasNotified100 = hasNotified100,
+        lastMonthSpend = lastMonthSpend
     )
 }

@@ -11,51 +11,52 @@ class TransactionRepositoryImpl(
     private val dao: TransactionDao
 ) : TransactionRepository {
 
-    override fun getAllTransactions(): Flow<List<Transaction>> {
-        return dao.getAllTransactions().map { entities ->
-            entities.map { it.toDomain() }
-        }
-    }
+    override fun getAllTransactions(): Flow<List<Transaction>> =
+        dao.getAllTransactions().map { it.map(TransactionEntity::toDomain) }
 
-    override suspend fun addTransaction(transaction: Transaction) {
+    override suspend fun addTransaction(transaction: Transaction) =
         dao.insertTransaction(transaction.toEntity())
-    }
 
-    override suspend fun updateTransaction(transaction: Transaction) {
+    override suspend fun updateTransaction(transaction: Transaction) =
         dao.insertTransaction(transaction.toEntity())
-    }
 
-    override suspend fun getTransactionsInRange(startTime: Long, endTime: Long): List<Transaction> {
-        return dao.getTransactionsInRange(startTime, endTime).map { it.toDomain() }
-    }
+    override suspend fun getTransactionsInRange(startTime: Long, endTime: Long): List<Transaction> =
+        dao.getTransactionsInRange(startTime, endTime).map(TransactionEntity::toDomain)
 
-    override suspend fun deleteTransaction(id: String) {
+    override suspend fun deleteTransaction(id: String) =
         dao.deleteTransactionById(id)
-    }
-
-    private fun TransactionEntity.toDomain() = Transaction(
-        id = id,
-        amount = amount,
-        merchant = merchant,
-        datetime = datetime,
-        type = type,
-        category = category,
-        source = source,
-        isIgnored = isIgnored,
-        merchantAlias = merchantAlias,
-        accountHint = accountHint
-    )
-
-    private fun Transaction.toEntity() = TransactionEntity(
-        id = id,
-        amount = amount,
-        merchant = merchant,
-        datetime = datetime,
-        type = type,
-        category = category,
-        source = source,
-        isIgnored = isIgnored,
-        merchantAlias = merchantAlias,
-        accountHint = accountHint
-    )
 }
+
+private fun TransactionEntity.toDomain() = Transaction(
+    id = id,
+    amount = amount,
+    merchant = merchant,
+    datetime = datetime,
+    type = type,
+    category = category,
+    source = source,
+    isIgnored = isIgnored,
+    merchantAlias = merchantAlias,
+    accountHint = accountHint,
+    transactionId = transactionId,
+    utr = utr,
+    balance = balance,
+    confidenceScore = confidenceScore
+)
+
+private fun Transaction.toEntity() = TransactionEntity(
+    id = id,
+    amount = amount,
+    merchant = merchant,
+    datetime = datetime,
+    type = type,
+    category = category,
+    source = source,
+    isIgnored = isIgnored,
+    merchantAlias = merchantAlias,
+    accountHint = accountHint,
+    transactionId = transactionId,
+    utr = utr,
+    balance = balance,
+    confidenceScore = confidenceScore
+)

@@ -1,7 +1,7 @@
 {
     "logs": [
         {
-            "outputFile": "com.billwise.app-mergeDebugResources-61:/values-zu/values-zu.xml",
+            "outputFile": "com.billwise.app-mergeDebugResources-60:/values-zu/values-zu.xml",
             "map": [
                 {
                     "source": "/home/devang/.gradle/caches/transforms-4/dcbf1bbdd4bbaaab3e31d2456812e3ec/transformed/play-services-base-18.5.0/res/values-zu/values.xml",

@@ -19,8 +19,14 @@ class BillWiseNotificationListener : NotificationListenerService() {
 
         val packageName = sbn.packageName
         
-        // Listen specifically to PhonePe, GPay, Paytm, etc.
-        val targetApps = listOf("com.phonepe.app", "com.google.android.apps.nbu.paisa.user", "net.one97.paytm")
+        // Listen specifically to Banking, UPI and Shopping apps
+        val targetApps = listOf(
+            "com.phonepe.app", 
+            "com.google.android.apps.nbu.paisa.user", 
+            "net.one97.paytm",
+            "in.amazon.mShop.android.shopping",
+            "com.flipkart.android"
+        )
         if (packageName !in targetApps) return
 
         val extras = sbn.notification.extras
@@ -37,6 +43,8 @@ class BillWiseNotificationListener : NotificationListenerService() {
                 "com.phonepe.app" -> "PHONEPE"
                 "com.google.android.apps.nbu.paisa.user" -> "GPAY"
                 "net.one97.paytm" -> "PAYTM"
+                "in.amazon.mShop.android.shopping" -> "AMAZON"
+                "com.flipkart.android" -> "FLIPKART"
                 else -> "UNKNOWN"
             }
 

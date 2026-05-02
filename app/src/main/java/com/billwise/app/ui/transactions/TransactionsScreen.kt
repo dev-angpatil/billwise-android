@@ -3,12 +3,16 @@ package com.billwise.app.ui.transactions
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -17,7 +21,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.billwise.app.domain.model.Transaction
 import com.billwise.app.domain.model.TransactionType
 import com.billwise.app.ui.viewmodel.TransactionViewModel
@@ -25,7 +31,11 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val CATEGORIES = listOf("All", "Food", "Transport", "Shopping", "Subscriptions", "Medical", "Utilities", "Others")
+private val CATEGORIES = listOf(
+    "All", "Food & Dining", "Transport & Travel", "Groceries", "Shopping",
+    "Subscriptions & Entertainment", "Health & Medical", "Utilities & Bills",
+    "Investment", "Education", "Transfer", "Uncategorized", "Others"
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -75,7 +85,10 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
             Spacer(Modifier.height(10.dp))
 
             // ── Category Filter Chips ────────────────────────────────
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 8.dp)
+            ) {
                 items(CATEGORIES) { category ->
                     val selected = category == selectedCategory
                     FilterChip(
@@ -90,7 +103,7 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(4.dp))
 
             // ── List / Empty State ────────────────────────────────────
             if (filteredTransactions.isEmpty()) {
@@ -106,16 +119,17 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                                 "No transactions yet.\nSync SMS or add one manually."
                             else "No results found.",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f)
+                            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.5f),
+                            textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
                     }
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(
-                        items = filteredTransactions,
-                        key = { it.id }
-                    ) { transaction ->
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
+                    items(filteredTransactions, key = { it.id }) { transaction ->
                         var deleted by remember { mutableStateOf(false) }
 
                         val dismissState = rememberSwipeToDismissBoxState(
@@ -157,8 +171,11 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                                             .padding(end = 20.dp),
                                         contentAlignment = Alignment.CenterEnd
                                     ) {
-                                        Icon(Icons.Default.Delete, contentDescription = "Delete",
-                                            tint = Color.White)
+                                        Icon(
+                                            imageVector = Icons.Default.Delete,
+                                            contentDescription = "Delete",
+                                            tint = Color.White
+                                        )
                                     }
                                 }
                             ) {
@@ -166,50 +183,71 @@ fun TransactionsScreen(viewModel: TransactionViewModel) {
                             }
                         }
                     }
-                    item { Spacer(Modifier.height(8.dp)) }
                 }
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun TransactionItemWithDialog(transaction: Transaction, viewModel: TransactionViewModel) {
     var showEditDialog by remember { mutableStateOf(false) }
+    
     if (showEditDialog) {
-        var newAlias by remember { mutableStateOf(transaction.merchantAlias ?: transaction.merchant) }
-        var newCategory by remember { mutableStateOf(transaction.category) }
+        // Use derived state or just handle updates carefully
+        var newAlias by remember(transaction) { mutableStateOf(transaction.merchantAlias ?: transaction.merchant) }
+        var selectedCategory by remember(transaction) { mutableStateOf(transaction.category) }
         
         AlertDialog(
             onDismissRequest = { showEditDialog = false },
-            title = { Text("Edit Transaction Details") },
+            title = { Text("Edit Merchant Details") },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                     OutlinedTextField(
                         value = newAlias,
                         onValueChange = { newAlias = it },
-                        label = { Text("Merchant Alias") },
-                        modifier = Modifier.fillMaxWidth()
+                        label = { Text("Display Name (Alias)") },
+                        placeholder = { Text(transaction.merchant) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp)
                     )
-                    OutlinedTextField(
-                        value = newCategory,
-                        onValueChange = { newCategory = it },
-                        label = { Text("Category") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("Category", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.Bold)
+                        
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            CATEGORIES.drop(1).forEach { category ->
+                                val selected = category == selectedCategory
+                                FilterChip(
+                                    selected = selected,
+                                    onClick = { selectedCategory = category },
+                                    label = { Text(category) },
+                                    shape = CircleShape
+                                )
+                            }
+                        }
+                    }
+                    
                     Text(
-                        "Changes to Alias and Category will automatically apply to all past and future transactions with this exact merchant.",
+                        "Updating this will apply to all transactions from \"${transaction.merchant}\".",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                     )
                 }
             },
             confirmButton = {
-                TextButton(onClick = {
-                    viewModel.updateMerchantAlias(transaction.id, newAlias)
-                    viewModel.updateTransactionCategory(transaction.id, newCategory)
-                    showEditDialog = false
-                }) { Text("Save") }
+                Button(
+                    onClick = {
+                        viewModel.updateMerchantAlias(transaction.id, newAlias)
+                        viewModel.updateTransactionCategory(transaction.id, selectedCategory)
+                        showEditDialog = false
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                ) { Text("Save Changes") }
             },
             dismissButton = {
                 TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
@@ -221,77 +259,115 @@ fun TransactionItemWithDialog(transaction: Transaction, viewModel: TransactionVi
 
 @Composable
 fun TransactionItem(transaction: Transaction, onClick: () -> Unit = {}) {
-    val formatter = SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault())
+    val formatter = remember { SimpleDateFormat("dd MMM, HH:mm", Locale.getDefault()) }
     val dateString = formatter.format(Date(transaction.datetime))
     val isCredit = transaction.type == TransactionType.CREDIT
-    val amountColor = if (isCredit) Color(0xFF34D399) else Color(0xFFF43F5E)
+    val amountColor = if (isCredit) Color(0xFF10B981) else Color(0xFFEF4444)
     val amountPrefix = if (isCredit) "+" else "−"
+    
+    // AI confidence indicator
+    val isLowConfidence = transaction.confidenceScore < 0.8f
 
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Category color dot + merchant info
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 Box(
                     modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(amountColor.copy(alpha = 0.15f)),
+                        .size(48.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(amountColor.copy(alpha = 0.1f)),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        transaction.merchant.firstOrNull()?.uppercaseChar()?.toString() ?: "?",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
+                        (transaction.merchantAlias ?: transaction.merchant).firstOrNull()?.uppercaseChar()?.toString() ?: "?",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.ExtraBold,
                         color = amountColor
                     )
                 }
-                Column {
-                    Text(
-                        transaction.merchantAlias ?: transaction.merchant,
-                        style = MaterialTheme.typography.bodyLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            transaction.merchantAlias ?: transaction.merchant,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
+                        )
+                        Icon(
+                            Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            modifier = Modifier.size(12.dp).padding(start = 4.dp),
+                            tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
+                        )
+                        if (isLowConfidence) {
+                            Spacer(Modifier.width(6.dp))
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = "AI Assisted",
+                                modifier = Modifier.size(14.dp),
+                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
+                            )
+                        }
+                    }
+                    
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         Text(
                             transaction.category,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f)
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
                         )
-                        Text("·", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f))
+                        Text("•", color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f))
                         Text(
                             dateString,
                             style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
                         )
                     }
                 }
             }
-            Text(
-                "$amountPrefix₹${String.format("%,.2f", transaction.amount)}",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.Bold,
-                color = amountColor
-            )
+            
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    "$amountPrefix₹${"%,.2f".format(transaction.amount)}",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = amountColor
+                )
+                if (transaction.source != com.billwise.app.domain.model.TransactionSource.MANUAL) {
+                    Text(
+                        transaction.source.name,
+                        style = androidx.compose.ui.text.TextStyle(
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.3f)
+                        )
+                    )
+                }
+            }
         }
     }
 }
-

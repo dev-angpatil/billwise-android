@@ -3,6 +3,7 @@ package com.billwise.app.data.local;
 import android.database.Cursor;
 import android.os.CancellationSignal;
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.room.CoroutinesRoom;
 import androidx.room.EntityInsertionAdapter;
 import androidx.room.RoomDatabase;
@@ -14,6 +15,7 @@ import androidx.sqlite.db.SupportSQLiteStatement;
 import com.billwise.app.domain.model.TransactionSource;
 import com.billwise.app.domain.model.TransactionType;
 import java.lang.Class;
+import java.lang.Double;
 import java.lang.Exception;
 import java.lang.Object;
 import java.lang.Override;
@@ -47,7 +49,7 @@ public final class TransactionDao_Impl implements TransactionDao {
       @Override
       @NonNull
       protected String createQuery() {
-        return "INSERT OR REPLACE INTO `transactions` (`id`,`amount`,`merchant`,`datetime`,`type`,`category`,`source`,`isIgnored`,`merchantAlias`,`accountHint`) VALUES (?,?,?,?,?,?,?,?,?,?)";
+        return "INSERT OR IGNORE INTO `transactions` (`id`,`amount`,`merchant`,`datetime`,`type`,`category`,`source`,`isIgnored`,`merchantAlias`,`accountHint`,`transactionId`,`utr`,`balance`,`confidenceScore`) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)";
       }
 
       @Override
@@ -74,6 +76,22 @@ public final class TransactionDao_Impl implements TransactionDao {
         } else {
           statement.bindString(10, entity.getAccountHint());
         }
+        if (entity.getTransactionId() == null) {
+          statement.bindNull(11);
+        } else {
+          statement.bindString(11, entity.getTransactionId());
+        }
+        if (entity.getUtr() == null) {
+          statement.bindNull(12);
+        } else {
+          statement.bindString(12, entity.getUtr());
+        }
+        if (entity.getBalance() == null) {
+          statement.bindNull(13);
+        } else {
+          statement.bindDouble(13, entity.getBalance());
+        }
+        statement.bindDouble(14, entity.getConfidenceScore());
       }
     };
     this.__preparedStmtOfDeleteTransactionById = new SharedSQLiteStatement(__db) {
@@ -201,6 +219,10 @@ public final class TransactionDao_Impl implements TransactionDao {
           final int _cursorIndexOfIsIgnored = CursorUtil.getColumnIndexOrThrow(_cursor, "isIgnored");
           final int _cursorIndexOfMerchantAlias = CursorUtil.getColumnIndexOrThrow(_cursor, "merchantAlias");
           final int _cursorIndexOfAccountHint = CursorUtil.getColumnIndexOrThrow(_cursor, "accountHint");
+          final int _cursorIndexOfTransactionId = CursorUtil.getColumnIndexOrThrow(_cursor, "transactionId");
+          final int _cursorIndexOfUtr = CursorUtil.getColumnIndexOrThrow(_cursor, "utr");
+          final int _cursorIndexOfBalance = CursorUtil.getColumnIndexOrThrow(_cursor, "balance");
+          final int _cursorIndexOfConfidenceScore = CursorUtil.getColumnIndexOrThrow(_cursor, "confidenceScore");
           final List<TransactionEntity> _result = new ArrayList<TransactionEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final TransactionEntity _item;
@@ -238,7 +260,27 @@ public final class TransactionDao_Impl implements TransactionDao {
             } else {
               _tmpAccountHint = _cursor.getString(_cursorIndexOfAccountHint);
             }
-            _item = new TransactionEntity(_tmpId,_tmpAmount,_tmpMerchant,_tmpDatetime,_tmpType,_tmpCategory,_tmpSource,_tmpIsIgnored,_tmpMerchantAlias,_tmpAccountHint);
+            final String _tmpTransactionId;
+            if (_cursor.isNull(_cursorIndexOfTransactionId)) {
+              _tmpTransactionId = null;
+            } else {
+              _tmpTransactionId = _cursor.getString(_cursorIndexOfTransactionId);
+            }
+            final String _tmpUtr;
+            if (_cursor.isNull(_cursorIndexOfUtr)) {
+              _tmpUtr = null;
+            } else {
+              _tmpUtr = _cursor.getString(_cursorIndexOfUtr);
+            }
+            final Double _tmpBalance;
+            if (_cursor.isNull(_cursorIndexOfBalance)) {
+              _tmpBalance = null;
+            } else {
+              _tmpBalance = _cursor.getDouble(_cursorIndexOfBalance);
+            }
+            final float _tmpConfidenceScore;
+            _tmpConfidenceScore = _cursor.getFloat(_cursorIndexOfConfidenceScore);
+            _item = new TransactionEntity(_tmpId,_tmpAmount,_tmpMerchant,_tmpDatetime,_tmpType,_tmpCategory,_tmpSource,_tmpIsIgnored,_tmpMerchantAlias,_tmpAccountHint,_tmpTransactionId,_tmpUtr,_tmpBalance,_tmpConfidenceScore);
             _result.add(_item);
           }
           return _result;
@@ -280,6 +322,10 @@ public final class TransactionDao_Impl implements TransactionDao {
           final int _cursorIndexOfIsIgnored = CursorUtil.getColumnIndexOrThrow(_cursor, "isIgnored");
           final int _cursorIndexOfMerchantAlias = CursorUtil.getColumnIndexOrThrow(_cursor, "merchantAlias");
           final int _cursorIndexOfAccountHint = CursorUtil.getColumnIndexOrThrow(_cursor, "accountHint");
+          final int _cursorIndexOfTransactionId = CursorUtil.getColumnIndexOrThrow(_cursor, "transactionId");
+          final int _cursorIndexOfUtr = CursorUtil.getColumnIndexOrThrow(_cursor, "utr");
+          final int _cursorIndexOfBalance = CursorUtil.getColumnIndexOrThrow(_cursor, "balance");
+          final int _cursorIndexOfConfidenceScore = CursorUtil.getColumnIndexOrThrow(_cursor, "confidenceScore");
           final List<TransactionEntity> _result = new ArrayList<TransactionEntity>(_cursor.getCount());
           while (_cursor.moveToNext()) {
             final TransactionEntity _item;
@@ -317,8 +363,67 @@ public final class TransactionDao_Impl implements TransactionDao {
             } else {
               _tmpAccountHint = _cursor.getString(_cursorIndexOfAccountHint);
             }
-            _item = new TransactionEntity(_tmpId,_tmpAmount,_tmpMerchant,_tmpDatetime,_tmpType,_tmpCategory,_tmpSource,_tmpIsIgnored,_tmpMerchantAlias,_tmpAccountHint);
+            final String _tmpTransactionId;
+            if (_cursor.isNull(_cursorIndexOfTransactionId)) {
+              _tmpTransactionId = null;
+            } else {
+              _tmpTransactionId = _cursor.getString(_cursorIndexOfTransactionId);
+            }
+            final String _tmpUtr;
+            if (_cursor.isNull(_cursorIndexOfUtr)) {
+              _tmpUtr = null;
+            } else {
+              _tmpUtr = _cursor.getString(_cursorIndexOfUtr);
+            }
+            final Double _tmpBalance;
+            if (_cursor.isNull(_cursorIndexOfBalance)) {
+              _tmpBalance = null;
+            } else {
+              _tmpBalance = _cursor.getDouble(_cursorIndexOfBalance);
+            }
+            final float _tmpConfidenceScore;
+            _tmpConfidenceScore = _cursor.getFloat(_cursorIndexOfConfidenceScore);
+            _item = new TransactionEntity(_tmpId,_tmpAmount,_tmpMerchant,_tmpDatetime,_tmpType,_tmpCategory,_tmpSource,_tmpIsIgnored,_tmpMerchantAlias,_tmpAccountHint,_tmpTransactionId,_tmpUtr,_tmpBalance,_tmpConfidenceScore);
             _result.add(_item);
+          }
+          return _result;
+        } finally {
+          _cursor.close();
+          _statement.release();
+        }
+      }
+    }, $completion);
+  }
+
+  @Override
+  public Object getCategorySpend(final String category, final long start, final long end,
+      final Continuation<? super Double> $completion) {
+    final String _sql = "SELECT SUM(amount) FROM transactions WHERE category = ? AND datetime >= ? AND datetime <= ? AND type = 'DEBIT'";
+    final RoomSQLiteQuery _statement = RoomSQLiteQuery.acquire(_sql, 3);
+    int _argIndex = 1;
+    _statement.bindString(_argIndex, category);
+    _argIndex = 2;
+    _statement.bindLong(_argIndex, start);
+    _argIndex = 3;
+    _statement.bindLong(_argIndex, end);
+    final CancellationSignal _cancellationSignal = DBUtil.createCancellationSignal();
+    return CoroutinesRoom.execute(__db, false, _cancellationSignal, new Callable<Double>() {
+      @Override
+      @Nullable
+      public Double call() throws Exception {
+        final Cursor _cursor = DBUtil.query(__db, _statement, false, null);
+        try {
+          final Double _result;
+          if (_cursor.moveToFirst()) {
+            final Double _tmp;
+            if (_cursor.isNull(0)) {
+              _tmp = null;
+            } else {
+              _tmp = _cursor.getDouble(0);
+            }
+            _result = _tmp;
+          } else {
+            _result = null;
           }
           return _result;
         } finally {

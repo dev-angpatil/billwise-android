@@ -1,18 +1,32 @@
 package com.billwise.app
 
 import android.app.Application
+import androidx.room.Room
+import com.billwise.app.data.local.AppDatabase
+import com.billwise.app.data.repository.TransactionRepositoryImpl
+import com.billwise.app.data.parser.PdfParser
 
 class BillWiseApplication : Application() {
-    lateinit var db: com.billwise.app.data.local.AppDatabase
+    lateinit var db: AppDatabase
         private set
-    lateinit var transactionRepository: com.billwise.app.data.repository.TransactionRepositoryImpl
+    lateinit var transactionRepository: TransactionRepositoryImpl
         private set
 
     override fun onCreate() {
         super.onCreate()
-        db = androidx.room.Room.databaseBuilder(applicationContext, com.billwise.app.data.local.AppDatabase::class.java, "billwise-db")
-            .addMigrations(com.billwise.app.data.local.AppDatabase.MIGRATION_1_2, com.billwise.app.data.local.AppDatabase.MIGRATION_2_3, com.billwise.app.data.local.AppDatabase.MIGRATION_3_4)
+        db = Room.databaseBuilder(applicationContext, AppDatabase::class.java, "billwise-db")
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6
+            )
+            .fallbackToDestructiveMigration() // Safety fallback for any version mismatch
             .build()
-        transactionRepository = com.billwise.app.data.repository.TransactionRepositoryImpl(db.transactionDao())
+        
+        transactionRepository = TransactionRepositoryImpl(db.transactionDao())
+        
+        PdfParser.init(this)
     }
 }

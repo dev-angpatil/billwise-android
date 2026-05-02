@@ -1,8 +1,8 @@
 package com.billwise.app
 
 import android.Manifest
-import android.content.pm.PackageManager
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
@@ -24,12 +24,9 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.*
-import androidx.room.Room
 import com.billwise.app.data.local.AppDatabase
 import com.billwise.app.data.local.SmsReader
-import com.billwise.app.data.repository.BillRepositoryImpl
 import com.billwise.app.data.repository.BudgetRepositoryImpl
-import com.billwise.app.data.repository.TransactionRepositoryImpl
 import com.billwise.app.domain.usecase.AnalyzeSpendingUseCase
 import com.billwise.app.domain.usecase.CategorizeTransactionUseCase
 import com.billwise.app.domain.usecase.DeduplicateTransactionUseCase
@@ -56,9 +53,9 @@ class MainActivity : ComponentActivity() {
     private lateinit var smsReader: SmsReader
 
     private val requestPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { isGranted: Boolean ->
-        if (isGranted) {
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        if (permissions[Manifest.permission.READ_SMS] == true) {
             syncSms()
         } else {
             Toast.makeText(this, "SMS Permission is required for auto-tracking", Toast.LENGTH_LONG).show()
@@ -68,35 +65,49 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Get singletons from Application
         val app = application as BillWiseApplication
         db = app.db
         val transactionRepo = app.transactionRepository
-        val billRepo        = BillRepositoryImpl(db.billDao())
         val budgetRepo      = BudgetRepositoryImpl(db.budgetDao())
 
         val categorizeUseCase    = CategorizeTransactionUseCase()
         val deduplicateUseCase   = DeduplicateTransactionUseCase()
         val analyzeUseCase       = AnalyzeSpendingUseCase()
         val generateInsightsUseCase = GenerateInsightsUseCase()
+        
+        val notificationHelper = com.billwise.app.core.NotificationHelper(this)
+        val budgetCheckUseCase = com.billwise.app.domain.usecase.BudgetCheckUseCase(
+            db.budgetDao(),
+            db.transactionDao(),
+            notificationHelper
+        )
+        val detectHighTransactionUseCase = com.billwise.app.domain.usecase.DetectHighTransactionUseCase()
 
-        transactionViewModel = TransactionViewModel(transactionRepo, categorizeUseCase, deduplicateUseCase)
+        transactionViewModel = TransactionViewModel(
+            transactionRepo,
+            categorizeUseCase,
+            deduplicateUseCase,
+            budgetCheckUseCase,
+            detectHighTransactionUseCase
+        )
         insightViewModel     = InsightViewModel(transactionRepo, budgetRepo, analyzeUseCase, generateInsightsUseCase)
         budgetViewModel      = BudgetViewModel(budgetRepo)
-        billViewModel        = BillViewModel(billRepo) { transaction ->
+        
+        // BillViewModel now takes a direct callback to TransactionViewModel
+        billViewModel = BillViewModel { transaction ->
             transactionViewModel.addTransaction(transaction)
         }
 
         smsReader = SmsReader(this)
 
         // Check Permissions
-        when {
-            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED -> {
-                syncSms()
-            }
-            else -> {
-                requestPermissionLauncher.launch(Manifest.permission.READ_SMS)
-            }
+        val smsReadGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_SMS) == PackageManager.PERMISSION_GRANTED
+        val smsReceiveGranted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECEIVE_SMS) == PackageManager.PERMISSION_GRANTED
+        
+        if (smsReadGranted && smsReceiveGranted) {
+            syncSms()
+        } else {
+            requestPermissionLauncher.launch(arrayOf(Manifest.permission.READ_SMS, Manifest.permission.RECEIVE_SMS))
         }
 
         if (!isNotificationServiceEnabled()) {
@@ -106,6 +117,10 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             BillWiseTheme {
+                androidx.compose.runtime.LaunchedEffect(Unit) {
+                    transactionViewModel.purgeInvalidTransactions(smsReader)
+                    syncSms()
+                }
                 MainScreen(transactionViewModel, insightViewModel, billViewModel, budgetViewModel)
             }
         }
@@ -113,9 +128,16 @@ class MainActivity : ComponentActivity() {
 
     private fun syncSms() {
         lifecycleScope.launch {
-            val transactions = smsReader.readSmsMessages()
-            transactions.forEach {
-                transactionViewModel.addTransaction(it)
+            val prefs = getSharedPreferences("billwise_prefs", MODE_PRIVATE)
+            val lastSync = prefs.getLong("last_sms_sync", 0L)
+            
+            val transactions = smsReader.readSmsMessages(sinceTimestamp = lastSync)
+            if (transactions.isNotEmpty()) {
+                transactions.forEach { transactionViewModel.addTransaction(it) }
+                
+                // Update last sync to the newest message's date
+                val newestDate = transactions.maxOf { it.datetime }
+                prefs.edit().putLong("last_sms_sync", newestDate).apply()
             }
         }
     }
@@ -184,4 +206,3 @@ sealed class Screen(val route: String, val title: String, val icon: androidx.com
     object Insights     : Screen("insights",     "Insights",      Icons.Filled.Insights)
     object Budget       : Screen("budget",       "Budget",        Icons.Filled.Savings)
 }
-

@@ -20,19 +20,30 @@ import androidx.compose.ui.unit.sp
 import com.billwise.app.ui.viewmodel.BudgetViewModel
 import com.billwise.app.ui.viewmodel.InsightViewModel
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BudgetSettingsScreen(
     budgetViewModel: BudgetViewModel,
     insightViewModel: InsightViewModel
 ) {
-    val budget        by budgetViewModel.budget.collectAsState()
-    val totalSpent    by insightViewModel.totalSpent.collectAsState()
-    val budgetProgress by insightViewModel.budgetProgress.collectAsState()
+    val budgets       by budgetViewModel.budgets.collectAsState()
+    val categorySpent by insightViewModel.categoryBreakdown.collectAsState()
 
-    var limitInput by remember(budget) {
-        mutableStateOf(budget?.monthlyLimit?.let { "%.0f".format(it) } ?: "")
+    val categories = listOf("Total", "Food & Dining", "Transport & Travel", "Groceries", "Shopping", "Subscriptions & Entertainment", "Health & Medical", "Utilities & Bills", "Investment", "Education")
+    var selectedCategory by remember { mutableStateOf(categories[0]) }
+    
+    val currentBudget = budgets.find { it.category == selectedCategory }
+    val currentSpent = if (selectedCategory == "Total") {
+        insightViewModel.totalSpent.collectAsState().value
+    } else {
+        categorySpent[selectedCategory] ?: 0.0
+    }
+
+    var limitInput by remember(selectedCategory, currentBudget) {
+        mutableStateOf(currentBudget?.monthlyLimit?.let { "%.0f".format(it) } ?: "")
     }
     var saved by remember { mutableStateOf(false) }
+    var expanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -44,61 +55,92 @@ fun BudgetSettingsScreen(
         Spacer(Modifier.height(16.dp))
 
         Text(
-            "Budget",
+            "Budget Settings",
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onBackground
         )
 
-        // ── Current Budget Card ────────────────────────────────────────
-        if (budget != null) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        // ── Category Selector ────────────────────────────────────────
+        Box(modifier = Modifier.fillMaxWidth()) {
+            ExposedDropdownMenuBox(
+                expanded = expanded,
+                onExpandedChange = { expanded = !expanded },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            Brush.linearGradient(
-                                colors = listOf(Color(0xFF065F46), Color(0xFF064E3B))
-                            )
-                        )
-                        .padding(20.dp)
+                OutlinedTextField(
+                    value = selectedCategory,
+                    onValueChange = {},
+                    readOnly = true,
+                    label = { Text("Category") },
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                    modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    colors = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                )
+                ExposedDropdownMenu(
+                    expanded = expanded,
+                    onDismissRequest = { expanded = false }
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text("Monthly Budget",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = Color.White.copy(alpha = 0.7f))
-                                Text("₹${String.format("%,.0f", budget!!.monthlyLimit)}",
-                                    fontSize = 28.sp,
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = Color.White)
+                    categories.forEach { cat ->
+                        DropdownMenuItem(
+                            text = { Text(cat) },
+                            onClick = {
+                                selectedCategory = cat
+                                expanded = false
+                                saved = false
                             }
-                            Icon(Icons.Default.Savings,
-                                contentDescription = null,
-                                tint = Color.White.copy(alpha = 0.5f),
-                                modifier = Modifier.size(40.dp))
-                        }
-
-                        val remaining = budget!!.monthlyLimit - totalSpent
-                        Text(
-                            if (remaining >= 0)
-                                "₹${String.format("%,.2f", remaining)} remaining"
-                            else
-                                "₹${String.format("%,.2f", -remaining)} over budget!",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = if (remaining >= 0) Color(0xFF6EE7B7) else Color(0xFFFCA5A5)
                         )
+                    }
+                }
+            }
+        }
 
-                        // Progress bar
-                        val prog = budgetProgress.coerceIn(0f, 1f)
+        // ── Current Category Status ────────────────────────────────────────
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(20.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            val bgBrush = if (currentBudget != null && currentSpent > currentBudget.monthlyLimit) {
+                Brush.linearGradient(colors = listOf(Color(0xFF7F1D1D), Color(0xFF450A0A)))
+            } else {
+                Brush.linearGradient(colors = listOf(Color(0xFF065F46), Color(0xFF064E3B)))
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(bgBrush)
+                    .padding(20.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column {
+                            Text("$selectedCategory Budget",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = Color.White.copy(alpha = 0.7f))
+                            Text("₹${if (currentBudget != null) String.format("%,.0f", currentBudget.monthlyLimit) else "N/A"}",
+                                fontSize = 28.sp,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = Color.White)
+                        }
+                        Icon(Icons.Default.Savings,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.size(40.dp))
+                    }
+
+                    Text(
+                        "Spent so far: ₹${String.format("%,.2f", currentSpent)}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color.White.copy(alpha = 0.9f)
+                    )
+
+                    if (currentBudget != null) {
+                        val prog = (currentSpent / currentBudget.monthlyLimit).toFloat().coerceIn(0f, 1.2f)
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -108,19 +150,19 @@ fun BudgetSettingsScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(prog)
+                                    .fillMaxWidth((prog / 1.2f).coerceIn(0f, 1f))
                                     .height(10.dp)
                                     .clip(RoundedCornerShape(5.dp))
                                     .background(
                                         when {
                                             prog >= 1f -> Color(0xFFF87171)
-                                            prog >= 0.8f -> Color(0xFFFBBF24)
+                                            prog >= 0.75f -> Color(0xFFFBBF24)
                                             else -> Color(0xFF34D399)
                                         }
                                     )
                             )
                         }
-                        Text("${(prog * 100).toInt()}% used",
+                        Text("${(prog * 100).toInt()}% of limit used",
                             style = MaterialTheme.typography.bodySmall,
                             color = Color.White.copy(alpha = 0.6f))
                     }
@@ -130,7 +172,7 @@ fun BudgetSettingsScreen(
 
         // ── Set / Update Budget ────────────────────────────────────────
         Text(
-            if (budget == null) "Set Your Monthly Budget" else "Update Budget",
+            if (currentBudget == null) "Set $selectedCategory Limit" else "Update $selectedCategory Limit",
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
             color = MaterialTheme.colorScheme.onBackground
@@ -143,18 +185,23 @@ fun BudgetSettingsScreen(
             modifier = Modifier.fillMaxWidth(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             singleLine = true,
-            prefix = { Text("₹ ") }
+            prefix = { Text("₹ ") },
+            supportingText = {
+                if (currentBudget == null && selectedCategory != "Total") {
+                    Text("Suggestion: ₹2,000 (Based on spending habits)")
+                }
+            }
         )
 
         Button(
             onClick = {
-                budgetViewModel.saveBudget(limitInput)
+                budgetViewModel.saveBudget(selectedCategory, limitInput)
                 saved = true
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = limitInput.isNotBlank()
         ) {
-            Text("Save Budget", fontWeight = FontWeight.SemiBold)
+            Text("Save $selectedCategory Budget", fontWeight = FontWeight.SemiBold)
         }
 
         if (saved) {
@@ -166,7 +213,7 @@ fun BudgetSettingsScreen(
                 )
             ) {
                 Text(
-                    "✅ Budget saved successfully!",
+                    "✅ $selectedCategory budget saved successfully!",
                     modifier = Modifier.padding(12.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.secondary

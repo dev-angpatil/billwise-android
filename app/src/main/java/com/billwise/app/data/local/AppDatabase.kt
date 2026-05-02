@@ -7,14 +7,13 @@ import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 
 @Database(
-    entities = [TransactionEntity::class, BillEntity::class, BudgetEntity::class],
-    version = 4,
+    entities = [TransactionEntity::class, BudgetEntity::class],
+    version = 6,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
 abstract class AppDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
-    abstract fun billDao(): BillDao
     abstract fun budgetDao(): BudgetDao
 
     companion object {
@@ -44,6 +43,35 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE `transactions` ADD COLUMN `accountHint` TEXT")
             }
         }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `transactionId` TEXT")
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `utr` TEXT")
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `confidenceScore` REAL NOT NULL DEFAULT 1.0")
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Add balance to transactions
+                db.execSQL("ALTER TABLE `transactions` ADD COLUMN `balance` REAL")
+
+                // Recreate budgets table to support categories and notification flags
+                db.execSQL("DROP TABLE IF EXISTS `budgets` ")
+                db.execSQL(
+                    """CREATE TABLE IF NOT EXISTS `budgets` (
+                        `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+                        `category` TEXT NOT NULL,
+                        `monthlyLimit` REAL NOT NULL,
+                        `month` INTEGER NOT NULL,
+                        `year` INTEGER NOT NULL,
+                        `hasNotified75` INTEGER NOT NULL DEFAULT 0,
+                        `hasNotified100` INTEGER NOT NULL DEFAULT 0,
+                        `lastMonthSpend` REAL NOT NULL DEFAULT 0.0
+                    )"""
+                )
+            }
+        }
     }
 }
-

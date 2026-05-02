@@ -16,5 +16,9 @@ data class TransactionEntity(
     val source: TransactionSource,
     val isIgnored: Boolean = false,
     val merchantAlias: String? = null,
-    val accountHint: String? = null
+    val accountHint: String? = null,
+    val transactionId: String? = null,
+    val utr: String? = null,
+    val balance: Double? = null,
+    val confidenceScore: Float = 1.0f
 )

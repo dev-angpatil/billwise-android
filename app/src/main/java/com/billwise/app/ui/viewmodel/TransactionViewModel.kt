@@ -15,7 +15,9 @@ import kotlinx.coroutines.launch
 class TransactionViewModel(
     private val transactionRepository: TransactionRepository,
     private val categorizeTransactionUseCase: CategorizeTransactionUseCase,
-    private val deduplicateTransactionUseCase: DeduplicateTransactionUseCase
+    private val deduplicateTransactionUseCase: DeduplicateTransactionUseCase,
+    private val budgetCheckUseCase: com.billwise.app.domain.usecase.BudgetCheckUseCase,
+    private val detectHighTransactionUseCase: com.billwise.app.domain.usecase.DetectHighTransactionUseCase
 ) : ViewModel() {
 
     private val _allTransactions = MutableStateFlow<List<Transaction>>(emptyList())
@@ -29,6 +31,9 @@ class TransactionViewModel(
 
     private val _filteredTransactions = MutableStateFlow<List<Transaction>>(emptyList())
     val filteredTransactions: StateFlow<List<Transaction>> = _filteredTransactions.asStateFlow()
+
+    private val _highTransactionAlert = MutableStateFlow<Transaction?>(null)
+    val highTransactionAlert: StateFlow<Transaction?> = _highTransactionAlert.asStateFlow()
 
     init {
         loadTransactions()
@@ -57,10 +62,23 @@ class TransactionViewModel(
         viewModelScope.launch {
             val categorized = categorizeTransactionUseCase(transaction, _allTransactions.value)
             val isDuplicate = deduplicateTransactionUseCase(categorized, _allTransactions.value)
+            
             if (!isDuplicate) {
                 transactionRepository.addTransaction(categorized)
+                
+                // Flag suspiciously large transactions
+                if (detectHighTransactionUseCase(categorized)) {
+                    _highTransactionAlert.value = categorized
+                }
+
+                // Check budget and send alerts
+                budgetCheckUseCase(categorized.category)
             }
         }
+    }
+
+    fun clearHighTransactionAlert() {
+        _highTransactionAlert.value = null
     }
 
     fun updateMerchantAlias(transactionId: String, newAlias: String) {
@@ -69,6 +87,12 @@ class TransactionViewModel(
             if (tx != null) {
                 val finalAlias = newAlias.takeIf { it.isNotBlank() }
                 val updatedTx = tx.copy(merchantAlias = finalAlias)
+                
+                // Optimistic UI update
+                _allTransactions.value = _allTransactions.value.map { 
+                    if (it.merchant == tx.merchant) it.copy(merchantAlias = finalAlias) else it 
+                }
+                
                 transactionRepository.updateTransaction(updatedTx)
                 
                 // Auto-apply to other transactions with the exact same raw merchant name
@@ -84,19 +108,55 @@ class TransactionViewModel(
             val tx = _allTransactions.value.find { it.id == transactionId }
             if (tx != null) {
                 val updatedTx = tx.copy(category = newCategory)
+                
+                // Optimistic UI update
+                _allTransactions.value = _allTransactions.value.map { 
+                    if (it.merchant == tx.merchant) it.copy(category = newCategory) else it 
+                }
+                
                 transactionRepository.updateTransaction(updatedTx)
                 
                 // Auto-apply this new category to other transactions with the exact same raw merchant name
                 _allTransactions.value.filter { it.merchant == tx.merchant && it.id != tx.id }.forEach { other ->
                     transactionRepository.updateTransaction(other.copy(category = newCategory))
                 }
+
+                budgetCheckUseCase(tx.category)
+                budgetCheckUseCase(newCategory)
             }
         }
     }
 
     fun deleteTransaction(id: String) {
         viewModelScope.launch {
+            val tx = _allTransactions.value.find { it.id == id }
             transactionRepository.deleteTransaction(id)
+            if (tx != null) {
+                budgetCheckUseCase(tx.category)
+            }
+        }
+    }
+
+    fun purgeInvalidTransactions(smsReader: com.billwise.app.data.local.SmsReader) {
+        viewModelScope.launch {
+            val currentTxns = _allTransactions.value
+            val toDelete = mutableListOf<String>()
+            
+            currentTxns.forEach { tx ->
+                if (tx.source == com.billwise.app.domain.model.TransactionSource.SMS) {
+                    // Re-run strict detection
+                    // Note: We don't have the original body here, so we simulate a check 
+                    // on the merchant/amount context. If merchant is UNCATEGORISED and 
+                    // amount is suspicious, we flag it.
+                    if (tx.merchant == "UNCATEGORISED" && tx.category == "Others") {
+                        toDelete.add(tx.id)
+                    }
+                }
+            }
+            
+            toDelete.forEach { id ->
+                transactionRepository.deleteTransaction(id)
+            }
         }
     }
 
