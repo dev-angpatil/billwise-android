@@ -21,12 +21,12 @@ class InsightViewModel(
     private val transactionRepository: TransactionRepository,
     private val budgetRepository: BudgetRepository,
     private val analyzeSpendingUseCase: AnalyzeSpendingUseCase,
-    private val generateInsightsUseCase: GenerateInsightsUseCase
+    private val generateInsightsUseCase: GenerateInsightsUseCase,
 ) : ViewModel() {
 
     private val cal = Calendar.getInstance()
-    private val _selectedMonth = MutableStateFlow(cal.get(Calendar.MONTH) + 1)
-    private val _selectedYear  = MutableStateFlow(cal.get(Calendar.YEAR))
+    private val _selectedMonth = MutableStateFlow(cal[Calendar.MONTH] + 1)
+    private val _selectedYear  = MutableStateFlow(cal[Calendar.YEAR])
     val selectedMonth: StateFlow<Int> = _selectedMonth.asStateFlow()
     val selectedYear: StateFlow<Int>  = _selectedYear.asStateFlow()
 
@@ -44,9 +44,6 @@ class InsightViewModel(
 
     private val _insights          = MutableStateFlow<List<String>>(emptyList())
     val insights: StateFlow<List<String>> = _insights.asStateFlow()
-
-    private val _monthlyTrend      = MutableStateFlow<Map<String, Double>>(emptyMap())
-    val monthlyTrend: StateFlow<Map<String, Double>> = _monthlyTrend.asStateFlow()
 
     // New flows for advanced analytics
     private val _topMerchants      = MutableStateFlow<List<Pair<String, Double>>>(emptyList())
@@ -66,9 +63,6 @@ class InsightViewModel(
 
     private val _averageDailySpend = MutableStateFlow(0.0)
     val averageDailySpend: StateFlow<Double> = _averageDailySpend.asStateFlow()
-
-    private val _projectedMonthEnd = MutableStateFlow(0.0)
-    val projectedMonthEnd: StateFlow<Double> = _projectedMonthEnd.asStateFlow()
 
     private val _dailyBudget = MutableStateFlow(0.0)
     val dailyBudget: StateFlow<Double> = _dailyBudget.asStateFlow()
@@ -97,18 +91,16 @@ class InsightViewModel(
                         _totalIncome.value       = analyzeSpendingUseCase.getTotalIncomeInMonth(transactions, m, y)
                         _categoryBreakdown.value = breakdown
                         _dailySpend.value        = analyzeSpendingUseCase.getDailySpendForMonth(transactions, m, y)
-                        _monthlyTrend.value      = analyzeSpendingUseCase.getMonthlySpendTrend(transactions)
                         _topMerchants.value      = analyzeSpendingUseCase.getTopMerchants(transactions, m, y)
                         _weeklyComparison.value  = analyzeSpendingUseCase.getWeeklyComparison(transactions)
                         _incomeVsExpenseTrend.value = analyzeSpendingUseCase.getIncomeVsExpenseTrend(transactions)
                         _averageDailySpend.value = analyzeSpendingUseCase.getAverageDailySpend(transactions, m, y)
-                        _projectedMonthEnd.value = analyzeSpendingUseCase.getProjectedMonthEnd(transactions, m, y)
 
                         _budgets.value = budgetList
                         val totalBudget = budgetList.find { it.category == "Total" }
                         _budget.value = totalBudget
                         
-                        _budgetProgress.value = if (totalBudget != null && totalBudget.monthlyLimit > 0) {
+                        _budgetProgress.value = if (totalBudget != null && (totalBudget.monthlyLimit > 0)) {
                             (spent / totalBudget.monthlyLimit).toFloat().coerceIn(0f, 1.2f)
                         } else 0f
 
@@ -182,5 +174,9 @@ class InsightViewModel(
                 }
             }
         }
+    }
+
+    fun seedDemoData() {
+        com.billwise.app.core.MockDataGenerator.seed(transactionRepository)
     }
 }
