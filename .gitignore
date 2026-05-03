@@ -1,0 +1,29 @@
+# Gradle and Android build output
+.gradle/
+build/
+*/build/
+
+# Local machine and IDE state
+local.properties
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/usage.statistics.xml
+.idea/dictionaries/
+.idea/shelf/
+.idea/planningMode.xml
+
+# Android Studio generated captures
+captures/
+
+# Kotlin and native build caches
+.kotlin/
+.cxx/
+
+# Codex local session files
+.codex
+.codex/
+
+# Packaged artifacts
+*.apk
+*.aab
+*.ap_

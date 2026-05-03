@@ -176,7 +176,4 @@ class InsightViewModel(
         }
     }
 
-    fun seedDemoData() {
-        com.billwise.app.core.MockDataGenerator.seed(transactionRepository)
-    }
 }

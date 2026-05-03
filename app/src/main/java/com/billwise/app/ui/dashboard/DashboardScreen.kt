@@ -376,21 +376,5 @@ fun DashboardScreen(viewModel: InsightViewModel) {
             }
         }
 
-        // ── Demo Mode Trigger ─────────────────────────────────────────────
-        item {
-            Spacer(Modifier.height(16.dp))
-            OutlinedButton(
-                onClick = { viewModel.seedDemoData() },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-            ) {
-                Text(
-                    "🚀 Launch Product Demo (Seed Mock Data)",
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-            Spacer(Modifier.height(24.dp))
-        }
     }
 }
